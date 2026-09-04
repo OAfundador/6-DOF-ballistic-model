@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sixdof-ballistics"
+version = "2.0.0"
+description = "6-DOF exterior ballistics for spin-stabilised projectiles, with anti-air lethality and Monte Carlo dispersion"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Luiz Guilherme de Padua Sanches" },
+]
+keywords = [
+    "ballistics",
+    "exterior-ballistics",
+    "6-dof",
+    "trajectory",
+    "monte-carlo",
+    "naval-artillery",
+    "air-defence",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+    "numpy>=1.22",
+    "scipy>=1.8",
+    "pandas>=1.4",
+    "openpyxl>=3.0",
+]
+
+[project.optional-dependencies]
+plots = ["matplotlib>=3.5"]
+dev = [
+    "matplotlib>=3.5",
+    "pytest>=7.0",
+]
+
+[project.urls]
+Repository = "https://github.com/OAfundador/6-DOF-ballistic-model"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+    "slow: full trajectory integrations; deselect with -m 'not slow'",
+]

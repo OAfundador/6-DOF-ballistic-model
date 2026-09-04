@@ -1,0 +1,41 @@
+cff-version: 1.2.0
+title: 6-DOF Ballistic Model
+message: >-
+  If you use this software in academic work, please cite both the
+  software and the thesis it was developed for.
+type: software
+authors:
+  - family-names: "de Padua Sanches"
+    given-names: "Luiz Guilherme"
+    affiliation: "Instituto de Matemática e Estatística, Universidade de São Paulo (IME-USP)"
+repository-code: "https://github.com/OAfundador/6-DOF-ballistic-model"
+license: MIT
+abstract: >-
+  Six-degree-of-freedom exterior ballistics model for spin-stabilised
+  projectiles, following McCoy's formulation, with optional layers for
+  anti-air fragment lethality and Monte Carlo dispersion analysis.
+  Developed for an undergraduate thesis in Applied and Computational
+  Mathematics at IME-USP. The thesis itself was produced with the
+  single-file engine preserved on the `legacy` branch; the `main` branch
+  is a later refactor into a package, machine-verified to be bit-identical
+  to it. Please state which branch you used.
+keywords:
+  - exterior ballistics
+  - six degrees of freedom
+  - rigid body dynamics
+  - Monte Carlo
+  - naval artillery
+  - air defence
+version: "2.0.0"
+references:
+  - type: book
+    title: >-
+      Modern Exterior Ballistics: The Launch and Flight Dynamics of
+      Symmetric Projectiles
+    authors:
+      - family-names: McCoy
+        given-names: Robert L.
+    edition: "2nd"
+    publisher:
+      name: Schiffer Publishing
+    year: 2012
