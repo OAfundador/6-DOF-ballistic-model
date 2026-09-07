@@ -108,6 +108,37 @@ weapon = Weapon(position=(20, 8, 0), elevation_deg=30, azimuth_deg=-1.2,
 environment = Environment(rho=1.18, W1=-8.0, W3=3.0)
 ```
 
+### The atmosphere: uniform by default, layered on request
+
+`Environment` holds one density and one speed of sound for the whole flight.
+That is what the thesis assumed, and it stays the default so that every number
+this repository reproduces stays reproduced. It is also a real assumption, and
+worth knowing when it starts to cost you: a naval shot peaking below 3 km is
+barely touched, while a howitzer reaching 5.6 km flies through air some 40%
+thinner and 7% slower in sound, which moves the range by about 12%.
+
+For shots with a real ceiling, `LayeredAtmosphere` is the ICAO model — a
+troposphere falling 6.5 K/km to 11 km, isothermal above:
+
+```python
+from sixdof.environment import LayeredAtmosphere
+
+environment = LayeredAtmosphere()          # 1.225 kg/m^3, 340.29 m/s at sea level
+environment.density_at(5000.0)             # 0.7361
+environment.sound_speed_at(5000.0)         # 320.53
+```
+
+The engine asks the environment for `density_at(h)` and `sound_speed_at(h)`
+rather than reading its attributes, and the base class answers both with the
+constants it already had. So swapping the class is the whole change, a custom
+profile is two methods, and the uniform case is untouched — the bit-exact proof
+of equivalence covers it.
+
+The speed of sound matters more than it looks, because it sets the Mach number
+that indexes the coefficient table. Held at a sea-level 340 m/s, a high shot
+reads its coefficients up to 13% off in Mach right through the transonic region,
+where drag varies by a factor of 2.5.
+
 ### Anti-air engagement
 
 ```python

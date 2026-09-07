@@ -26,7 +26,7 @@ they do not import each other. Importing `sixdof` loads neither optional layer.
 | Module | Responsibility | Depends on |
 | --- | --- | --- |
 | `paths` | Where the shipped data files live | — |
-| `environment` | Density, gravity, wind, speed of sound | — |
+| `environment` | Density, gravity, wind, speed of sound, as functions of altitude | — |
 | `projectile` | Mass, inertia, calibre, rifling, unit conversion | — |
 | `vessel` | Box target: bounds and hit test | — |
 | `weapon` | Mount, laying angles, platform coupling | `vessel` |
@@ -67,6 +67,16 @@ The shipped 5"/38 table carries both of those errors, inherited from the thesis
 and kept so the published results reproduce; `docs/table_5in38_provenance.md`
 declares them and measures them.
 
+**The atmosphere is asked, not read.** `six_dof_rhs` calls
+`environment.density_at(h)` and `environment.sound_speed_at(h)` rather than
+reading `rho` and `sound_speed` off the dataclass. On the base `Environment`
+both return the constants it already holds, so the uniform atmosphere the
+thesis assumed is unchanged and the proof of equivalence still passes bit for
+bit; `LayeredAtmosphere` overrides them with the ICAO profile. Two methods is
+the whole extension point, and the default stays the thesis's assumption rather
+than quietly improving on it — a model that changes published numbers when you
+upgrade it is worse than one that makes you ask.
+
 **`dynamics` is a free function, not a method.** `six_dof_rhs` takes the
 projectile, the environment and the coefficient source explicitly. That keeps
 the physics testable without constructing a simulator, and it is why
@@ -80,7 +90,7 @@ against the original engine.
 | Model a different shell | `Projectile.from_imperial(...)` or `Projectile(...)`; nothing else changes. |
 | Supply your own coefficients | `AerodynamicCoefficients(CD=..., CLA=..., ...)` — each a constant, a Mach table, a `(Mach, yaw)` grid or a callable. |
 | Read a table in someone else's convention | Copy `examples/07_bring_your_own_table.py`, change the arithmetic to match your source, and pass the resulting `AerodynamicCoefficients` to the simulator. Keep it with your data, not in the package. |
-| Add an altitude-dependent atmosphere | Replace `Environment` with an object exposing the same five scalars; the equations only ever read attributes. |
+| Use an altitude-dependent atmosphere | `LayeredAtmosphere()` for ICAO; for anything else, subclass `Environment` and override `density_at` / `sound_speed_at`. |
 | Add an aerodynamic term | Edit `six_dof_rhs` — but expect `test_regression_vs_original.py` to fail, which is the point: it is telling you the trajectories moved. |
 | Stop the integration on a new condition | Add an event factory in `events.py` and pass it through `simulate(extra_events=...)`. |
 | Model another air target | `box_target`, `triangular_prism_target`, or a `Target` built from your own `Facet` list. |

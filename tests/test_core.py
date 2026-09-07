@@ -35,6 +35,7 @@ from sixdof import (  # noqa: E402
     Weapon,
 )
 from sixdof.aa import ProximityFuze, shahed_136  # noqa: E402
+from sixdof.environment import LayeredAtmosphere  # noqa: E402
 from sixdof.paths import AERO_COEFFICIENTS_5IN38  # noqa: E402
 
 
@@ -389,3 +390,64 @@ def test_plotter_writes_every_figure(trajectory, tmp_path):
     assert {path.name for path in paths} == set(FIGURE_FILENAMES.values())
     for path in paths:
         assert path.exists() and path.stat().st_size > 0
+
+
+# ----------------------------------------------------------------------
+# the atmosphere
+# ----------------------------------------------------------------------
+def test_uniform_environment_ignores_altitude():
+    """The default must stay exactly constant: the proof of equivalence rests on it."""
+    air = Environment(rho=1.225, sound_speed=340.0)
+    for altitude in (0.0, 100.0, 5000.0, 20000.0, -50.0):
+        assert air.density_at(altitude) == air.rho
+        assert air.sound_speed_at(altitude) == air.sound_speed
+
+
+def test_layered_atmosphere_matches_the_icao_reference_values():
+    air = LayeredAtmosphere()
+    assert air.density_at(0.0) == pytest.approx(1.225, abs=5e-4)
+    assert air.sound_speed_at(0.0) == pytest.approx(340.29, abs=0.01)
+    # 5 km: the altitude the 44-degree benchmark shot spends most of its time near.
+    assert air.density_at(5000.0) == pytest.approx(0.7361, abs=1e-3)
+    assert air.sound_speed_at(5000.0) == pytest.approx(320.53, abs=0.05)
+
+
+def test_layered_atmosphere_thins_with_height_and_flattens_above_the_tropopause():
+    air = LayeredAtmosphere()
+    altitudes = np.array([0.0, 2000.0, 5000.0, 8000.0, 11000.0, 15000.0, 20000.0])
+    densities = np.array([air.density_at(h) for h in altitudes])
+    sound = np.array([air.sound_speed_at(h) for h in altitudes])
+
+    assert np.all(np.diff(densities) < 0)
+    assert np.all(np.diff(sound[:5]) < 0)
+    # Isothermal above the tropopause, so the speed of sound stops falling.
+    assert sound[4] == pytest.approx(sound[5], rel=1e-9)
+    assert sound[5] == pytest.approx(sound[6], rel=1e-9)
+
+
+def test_layered_atmosphere_reports_its_sea_level_values_as_attributes():
+    """``rho`` and ``sound_speed`` keep their meaning for summaries and reports."""
+    air = LayeredAtmosphere()
+    assert air.rho == pytest.approx(air.density_at(0.0))
+    assert air.sound_speed == pytest.approx(air.sound_speed_at(0.0))
+
+
+def test_below_ground_is_clamped_to_sea_level():
+    """A sample an integrator takes just below zero must not extrapolate."""
+    air = LayeredAtmosphere()
+    assert air.density_at(-10.0) == air.density_at(0.0)
+
+
+def test_a_layered_atmosphere_changes_the_flight(simulator_factory=None):
+    """Sanity: the hook is actually reaching the equations, not just the object."""
+    from sixdof import (
+        BallisticSimulator as _Sim,
+        naval_5in38_coefficients as _coef,
+        naval_5in38_gun as _gun,
+        naval_5in38_projectile as _proj,
+    )
+    coefficients = _coef()
+    projectile = _proj()
+    uniform = _Sim(projectile, _gun(elevation_deg=43.3), standard_atmosphere(), coefficients)
+    layered = _Sim(projectile, _gun(elevation_deg=43.3), LayeredAtmosphere(), coefficients)
+    assert layered.simulate(verbose=False).max_range > uniform.simulate(verbose=False).max_range

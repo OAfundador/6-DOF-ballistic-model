@@ -112,6 +112,37 @@ arma = Weapon(position=(20, 8, 0), elevation_deg=30, azimuth_deg=-1.2,
 ambiente = Environment(rho=1.18, W1=-8.0, W3=3.0)
 ```
 
+### A atmosfera: uniforme por padrão, em camadas se você pedir
+
+O `Environment` guarda uma densidade e uma velocidade do som para o voo inteiro.
+Foi o que o TCC assumiu, e continua sendo o padrão para que todo número que
+este repositório reproduz siga reproduzido. Também é uma hipótese de verdade, e
+vale saber quando ela começa a custar: um tiro naval que sobe a menos de 3 km
+quase não sente, enquanto um obus que chega a 5,6 km atravessa ar uns 40% mais
+rarefeito e com som 7% mais lento, o que muda o alcance em cerca de 12%.
+
+Para tiros com teto de verdade, o `LayeredAtmosphere` é o modelo ICAO —
+troposfera caindo 6,5 K/km até 11 km, isotérmica acima:
+
+```python
+from sixdof.environment import LayeredAtmosphere
+
+ambiente = LayeredAtmosphere()      # 1,225 kg/m³ e 340,29 m/s ao nível do mar
+ambiente.density_at(5000.0)         # 0,7361
+ambiente.sound_speed_at(5000.0)     # 320,53
+```
+
+O motor **pergunta** `density_at(h)` e `sound_speed_at(h)` ao ambiente em vez de
+ler os atributos, e a classe base responde as duas com as constantes que já
+tinha. Então trocar a classe é a mudança inteira, um perfil próprio são dois
+métodos, e o caso uniforme fica intocado — a prova de equivalência bit a bit
+cobre isso.
+
+A velocidade do som pesa mais do que parece, porque é ela que dá o Mach que
+indexa a tabela de coeficientes. Travada nos 340 m/s do nível do mar, um tiro
+alto lê seus coeficientes com até 13% de erro em Mach bem na faixa transônica,
+onde o arrasto varia por um fator 2,5.
+
 ### Engajamento antiaéreo
 
 ```python

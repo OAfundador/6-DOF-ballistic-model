@@ -205,7 +205,7 @@ def six_dof_rhs(
     v3 = V3 - environment.W3
     v = sqrt(v1 * v1 + v2 * v2 + v3 * v3)
 
-    mach = v / environment.sound_speed
+    mach = v / environment.sound_speed_at(ypos)
 
     # Total angle of attack between the velocity and the axis of symmetry.
     cos_alpha_t = (v1 * i1 + v2 * i2 + v3 * i3) / v
@@ -233,7 +233,7 @@ def six_dof_rhs(
     d = projectile.diameter
     I_P = projectile.I_P
     I_T = projectile.I_T
-    rho = environment.rho
+    rho = environment.density_at(ypos)
     g = environment.g
 
     # Axial spin recovered from the angular momentum: omega1 = (I_T/I_P)(h . i')
