@@ -6,6 +6,15 @@ The thesis finds it by brute force: integrate the whole elevation x azimuth
 grid, then for each elevation keep the azimuth minimising ``|z_impact|``.  The
 resulting table is the input to the point selection and the Monte Carlo
 campaign.
+
+The sweep proper and what is *made* of it are separate concerns, and worth
+keeping so.  :meth:`AngleSweep.run` walks the grid and reduces each flight to
+the six numbers of :data:`SWEEP_COLUMNS`, which is all the thesis needs; its
+``reduce`` hook hands the whole trajectory to a caller that needs more.  The
+anti-air point selection is exactly that case -- the round never lands on an
+air target, so the useful reduction is the closest approach in three
+dimensions, which lives in :mod:`sixdof.montecarlo.proximity` and is driven
+through this same loop rather than a second copy of it.
 """
 
 from __future__ import annotations
@@ -18,6 +27,7 @@ import pandas as pd
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..simulator import BallisticSimulator
+    from ..trajectory import Trajectory
 
 #: Column names of the raw sweep table.
 SWEEP_COLUMNS = (
@@ -130,6 +140,7 @@ class AngleSweep:
         self,
         progress_every: int = 100,
         callback: Optional[Callable[[int, int, float, float, float], None]] = None,
+        reduce: Optional[Callable[[float, float, "Trajectory"], None]] = None,
         verbose: bool = True,
     ) -> pd.DataFrame:
         """Integrate every grid point.
@@ -141,6 +152,17 @@ class AngleSweep:
         callback:
             Called as ``(count, total, elevation, azimuth, range_m)`` after each
             shot, for custom progress reporting.
+        reduce:
+            Called as ``(elevation, azimuth, trajectory)`` after each shot, with
+            the flight itself rather than a summary of it.  The returned table
+            is unchanged; this is for callers whose question the six columns
+            cannot answer.  The trajectory is discarded as soon as it returns,
+            so the hook must take what it needs -- see
+            :class:`~sixdof.montecarlo.proximity.NearestApproach`, which keeps
+            only a running best::
+
+                tracker = NearestApproach(waypoints)
+                sweep.run(reduce=lambda e, a, traj: tracker.absorb(traj, (e, a)))
 
         Returns
         -------
@@ -182,6 +204,9 @@ class AngleSweep:
                         "Tempo_voo_s": trajectory.flight_time,
                     }
                 )
+
+                if reduce is not None:
+                    reduce(elevation, azimuth, trajectory)
 
                 if callback is not None:
                     callback(count, total, elevation, azimuth, trajectory.max_range)

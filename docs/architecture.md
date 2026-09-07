@@ -9,8 +9,8 @@ Why the code is split the way it is, and where to add things.
    optional  ───▶   │  sixdof.aa                  │   fuze, target, warhead,
                     │                             │   fragment damage
                     ├─────────────────────────────┤
-   optional  ───▶   │  sixdof.montecarlo          │   sweep, selection,
-                    │                             │   dispersion, cost
+   optional  ───▶   │  sixdof.montecarlo          │   sweep, closest approach,
+                    │                             │   selection, dispersion, cost
                     ├─────────────────────────────┤
    core      ───▶   │  sixdof                     │   equations of motion,
                     │                             │   integration, trajectory
@@ -91,6 +91,7 @@ against the original engine.
 | Supply your own coefficients | `AerodynamicCoefficients(CD=..., CLA=..., ...)` — each a constant, a Mach table, a `(Mach, yaw)` grid or a callable. |
 | Read a table in someone else's convention | Copy `examples/07_bring_your_own_table.py`, change the arithmetic to match your source, and pass the resulting `AerodynamicCoefficients` to the simulator. Keep it with your data, not in the package. |
 | Use an altitude-dependent atmosphere | `LayeredAtmosphere()` for ICAO; for anything else, subclass `Environment` and override `density_at` / `sound_speed_at`. |
+| Ask how near a shot passed, rather than where it landed | `NearestApproach(points)` from `sixdof.montecarlo`, driven by `AngleSweep.run(reduce=...)` so one grid walk answers both. |
 | Add an aerodynamic term | Edit `six_dof_rhs` — but expect `test_regression_vs_original.py` to fail, which is the point: it is telling you the trajectories moved. |
 | Stop the integration on a new condition | Add an event factory in `events.py` and pass it through `simulate(extra_events=...)`. |
 | Model another air target | `box_target`, `triangular_prism_target`, or a `Target` built from your own `Facet` list. |

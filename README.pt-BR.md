@@ -46,7 +46,7 @@ Três camadas, cada uma utilizável isoladamente:
 | --- | --- | --- |
 | **Núcleo** | `sixdof` | Integra as equações de movimento 6-DOF de um tiro: arrasto, sustentação, Magnus, momento de tombamento e amortecimentos, com coeficientes interpolados em Mach e ângulo de ataque total. |
 | **Antiaérea** | `sixdof.aa` | Espoleta de proximidade, geometria de alvo por faces, ogiva fragmentária com distribuição polar de hits e modelo de dano que devolve a probabilidade de destruição. |
-| **Monte Carlo** | `sixdof.montecarlo` | A campanha de dispersão completa do TCC: varredura angular, seleção de pontos de mira, tiro perturbado com contagem de acertos e custo esperado de engajamento. |
+| **Monte Carlo** | `sixdof.montecarlo` | A campanha de dispersão completa do TCC: varredura angular, seleção de pontos de mira, tiro perturbado com contagem de acertos e custo esperado de engajamento. Também a redução por aproximação mínima, para a pergunta que o ponto de impacto não responde. |
 
 As camadas antiaérea e de Monte Carlo são opcionais — importar `sixdof` não
 carrega nenhuma delas.
@@ -294,6 +294,38 @@ resultados = campanha.run([AimPoint(39.6, -1.35, 16796.8, 4.26)])
 tabela = MonteCarloCampaign.to_frame(resultados)
 ```
 
+### Quão perto passou?
+
+Uma varredura reduz cada voo a alguns números, e **quais** poucos é a pergunta
+inteira. O TCC quer o ponto de impacto, porque está atirando em algo que flutua.
+Um tiro contra alvo aéreo nunca cai em cima dele, então a redução útil é a
+aproximação mínima em três dimensões a uma lista de pontos fixos no espaço:
+
+```python
+from sixdof.montecarlo import AngleSweep, NearestApproach, SweepGrid
+
+pontos = [(16673.7, 200.0, 0.0), (16468.7, 197.5, 0.0)]   # (x, y, z) em m
+rastreio = NearestApproach(pontos)
+
+varredura = AngleSweep(simulador, SweepGrid())
+tabela = varredura.run(reduce=lambda e, a, traj: rastreio.absorb(traj, (e, a)))
+
+for aproximacao in rastreio.best():
+    print(aproximacao.label, aproximacao.distance_m, aproximacao.time_s)
+```
+
+Uma única passada pela grade responde as duas perguntas: `tabela` é a varredura
+de sempre, e `rastreio` guarda o par que chegou mais perto de cada ponto, quando
+chegou e a que distância. O acumulador guarda só o melhor corrente, então uma
+varredura de dezenas de milhares de voos custa algumas centenas de bytes por
+ponto em vez de armazenar qualquer trajetória.
+
+Os pontos são estáticos e nada é casado com um instante. É justamente esse o
+sentido da abstração: ela não sabe o que os pontos **são**. Um corredor de
+waypoints de drone, uma escada de pontos de mira e uma linha de balizas de
+alcance são o mesmo problema para ela, e o estudo antiaéreo é um dos chamadores
+possíveis.
+
 ---
 
 ## Estrutura
@@ -312,9 +344,9 @@ src/sixdof/
   plotting.py       os dezoito gráficos padrão
   presets.py        a configuração 5"/38 usada em todo o TCC
   aa/               geometria do alvo, ogiva, espoleta, modelo de dano
-  montecarlo/       varredura, seleção de pontos, dispersão, custo
+  montecarlo/       varredura, aproximação mínima, seleção, dispersão, custo
 
-examples/           sete scripts executáveis -- ver examples/README.md
+examples/           scripts executáveis -- ver examples/README.md
 scripts/            proof_of_equivalence.py, reproduce_campaign_point.py
 tests/              a suíte, incluindo a regressão bit a bit
 tests/reference/    cópias congeladas do código pré-refatoração (nunca importadas)

@@ -17,6 +17,13 @@ Each stage writes a table that the next one reads, so a stage can be re-run
 from stored intermediate results without repeating the one before it.  Stage 1
 is the expensive one -- twenty thousand trajectories -- and its output ships in
 ``data/``.
+
+Stage 1 reduces each flight to where it lands, because that is the thesis
+question.  :mod:`~sixdof.montecarlo.proximity` is the other reduction: how near
+a shot *passed* a list of fixed points in space, which is what you need when the
+target is in the air and is never landed on.  It plugs into the same sweep
+through :meth:`AngleSweep.run <sixdof.montecarlo.sweep.AngleSweep.run>`'s
+``reduce`` hook, so there is one grid walk rather than two.
 """
 
 from .cost import (
@@ -28,6 +35,12 @@ from .cost import (
     wilson_interval,
 )
 from .dispersion import AimPoint, DispersionSettings, MonteCarloCampaign, PointResult
+from .proximity import (
+    ClosestApproach,
+    NearestApproach,
+    closest_approach,
+    trajectory_points,
+)
 from .selection import SpacingPolicy, select_points_by_spacing
 from .sweep import (
     AngleSweep,
@@ -44,6 +57,11 @@ __all__ = [
     "optimal_azimuths",
     "max_range_shot",
     "inclusive_range",
+    # the other reduction of a sweep
+    "NearestApproach",
+    "ClosestApproach",
+    "closest_approach",
+    "trajectory_points",
     # stage 2
     "select_points_by_spacing",
     "SpacingPolicy",

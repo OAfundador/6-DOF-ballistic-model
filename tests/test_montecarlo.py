@@ -31,12 +31,14 @@ from sixdof import (  # noqa: E402
 from sixdof.montecarlo import (  # noqa: E402
     AimPoint,
     AngleSweep,
+    closest_approach,
     DispersionSettings,
     expected_engagement_cost,
     inclusive_range,
     margin_of_error,
     max_range_shot,
     MonteCarloCampaign,
+    NearestApproach,
     optimal_azimuths,
     select_points_by_spacing,
     SweepGrid,
@@ -387,3 +389,119 @@ def test_wilson_and_wald_agree_near_one_half():
     wilson = wilson_interval(0.5, 1000)
     assert wald[0] == pytest.approx(wilson[0], abs=1e-3)
     assert wald[1] == pytest.approx(wilson[1], abs=1e-3)
+
+
+# ----------------------------------------------------------------------
+# closest approach to a list of fixed points
+# ----------------------------------------------------------------------
+class _Line:
+    """A straight flight, so the geometry can be checked in closed form."""
+
+    def __init__(self, offset_y=0.0, offset_z=0.0, n=101):
+        self.t = np.linspace(0.0, 10.0, n)
+        self.x = np.linspace(0.0, 1000.0, n)
+        self.y = np.full(n, float(offset_y))
+        self.z = np.full(n, float(offset_z))
+
+
+def test_closest_approach_finds_the_perpendicular_distance():
+    """A point beside a straight line is met at its own abscissa."""
+    sample, distance = closest_approach(_Line(), [(300.0, 4.0, 3.0)])
+    assert int(sample[0]) == 30                       # x = 300 m
+    assert float(distance[0]) == pytest.approx(5.0)   # 3-4-5
+
+
+def test_closest_approach_scores_every_point_at_once():
+    points = [(0.0, 0.0, 0.0), (500.0, 0.0, 0.0), (1000.0, 0.0, 0.0)]
+    sample, distance = closest_approach(_Line(), points)
+    assert list(sample) == [0, 50, 100]
+    assert distance == pytest.approx([0.0, 0.0, 0.0], abs=1e-9)
+
+
+def test_closest_approach_measures_in_three_dimensions():
+    """Lateral offset counts as much as vertical -- this is not a ground miss."""
+    _, lateral = closest_approach(_Line(offset_z=7.0), [(500.0, 0.0, 0.0)])
+    _, vertical = closest_approach(_Line(offset_y=7.0), [(500.0, 0.0, 0.0)])
+    assert float(lateral[0]) == pytest.approx(float(vertical[0]))
+    assert float(lateral[0]) == pytest.approx(7.0)
+
+
+def test_closest_approach_rejects_a_bad_point_array():
+    with pytest.raises(ValueError):
+        closest_approach(_Line(), [(1.0, 2.0)])
+
+
+def test_nearest_approach_keeps_the_best_per_point():
+    """Each point is served by whichever flight came nearest to *it*."""
+    tracker = NearestApproach([(500.0, 0.0, 0.0), (500.0, 9.0, 0.0)])
+    tracker.absorb(_Line(offset_y=0.0), label="low")
+    tracker.absorb(_Line(offset_y=10.0), label="high")
+
+    best = tracker.best()
+    assert best[0].label == "low" and best[0].distance_m == pytest.approx(0.0)
+    assert best[1].label == "high" and best[1].distance_m == pytest.approx(1.0)
+
+
+def test_nearest_approach_returns_the_point_each_flight_served():
+    """``absorb`` reports the flight's own nearest point, best or not."""
+    tracker = NearestApproach([(500.0, 0.0, 0.0), (500.0, 100.0, 0.0)])
+    served = tracker.absorb(_Line(offset_y=90.0), label="high")
+    assert served.point == 1                       # nearer the high point
+    assert served.distance_m == pytest.approx(10.0)
+    assert tracker.best()[0].label == "high"       # yet it is also the best so far
+
+
+def test_nearest_approach_breaks_ties_in_favour_of_the_first():
+    """Two equidistant flights: the answer must not depend on the walk order."""
+    tracker = NearestApproach([(500.0, 0.0, 0.0)])
+    tracker.absorb(_Line(offset_y=5.0), label="first")
+    tracker.absorb(_Line(offset_y=-5.0), label="second")
+    assert tracker.best()[0].label == "first"
+
+
+def test_nearest_approach_reports_when_nothing_flew():
+    tracker = NearestApproach([(1.0, 2.0, 3.0)])
+    assert tracker.unreached() == [0]
+    assert np.isinf(tracker.distances()[0])
+    tracker.absorb(_Line(), label="x")
+    assert tracker.unreached() == []
+
+
+def test_nearest_approach_records_the_time_of_the_pass():
+    tracker = NearestApproach([(300.0, 0.0, 0.0)])
+    approach = tracker.absorb(_Line(), label="x")
+    assert approach.time_s == pytest.approx(3.0)   # 300 of 1000 m at 10 s total
+    assert approach.position_m == pytest.approx([300.0, 0.0, 0.0])
+
+
+def test_sweep_reduce_hook_sees_the_whole_trajectory(simulator):
+    """The published sweep can drive the proximity reduction, one grid walk."""
+    grid = SweepGrid(
+        elevation_start=20.0, elevation_stop=21.0, elevation_step=1.0,
+        azimuth_start=-1.0, azimuth_stop=-0.5, azimuth_step=0.5,
+    )
+    sweep = AngleSweep(simulator, grid=grid, max_time=100.0)
+
+    seen = []
+    table = sweep.run(
+        verbose=False,
+        progress_every=0,
+        reduce=lambda e, a, traj: seen.append((e, a, float(traj.x[-1]))),
+    )
+
+    assert len(seen) == len(table)
+    # The hook's view and the table's summary describe the same flights.
+    assert [row[0] for row in seen] == list(table["Elevacao_deg"])
+    assert [row[1] for row in seen] == list(table["Azimute_deg"])
+
+
+def test_sweep_reduce_hook_is_optional(simulator):
+    """Omitting it leaves the thesis pipeline byte for byte as it was."""
+    grid = SweepGrid(
+        elevation_start=20.0, elevation_stop=21.0, elevation_step=1.0,
+        azimuth_start=-1.0, azimuth_stop=-0.5, azimuth_step=0.5,
+    )
+    sweep = AngleSweep(simulator, grid=grid, max_time=100.0)
+    plain = sweep.run(verbose=False, progress_every=0)
+    hooked = sweep.run(verbose=False, progress_every=0, reduce=lambda e, a, t: None)
+    pd.testing.assert_frame_equal(plain, hooked)

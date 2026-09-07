@@ -46,7 +46,7 @@ Three layers, each usable on its own:
 | --- | --- | --- |
 | **Core** | `sixdof` | Integrates the 6-DOF equations of motion for one shot: drag, lift, Magnus, overturning and damping terms, with coefficients interpolated in Mach and total angle of attack. |
 | **Anti-air** | `sixdof.aa` | Proximity fuze, faceted target geometry, fragmenting warhead with a polar hit distribution, and a fragment damage model that returns a probability of destruction. |
-| **Monte Carlo** | `sixdof.montecarlo` | The full dispersion campaign of the thesis: angle sweep, aim-point selection, perturbed firing with hit scoring, and expected engagement cost. |
+| **Monte Carlo** | `sixdof.montecarlo` | The full dispersion campaign of the thesis: angle sweep, aim-point selection, perturbed firing with hit scoring, and expected engagement cost. Also the closest-approach reduction, for the question the impact point cannot answer. |
 
 The anti-air and Monte Carlo layers are optional. Importing `sixdof` does not
 pull them in.
@@ -291,6 +291,37 @@ results = campaign.run([AimPoint(39.6, -1.35, 16796.8, 4.26)])
 table = MonteCarloCampaign.to_frame(results)
 ```
 
+### How near did it pass?
+
+A sweep reduces every flight to a few numbers, and which few is the whole
+question. The thesis wants the impact point, because it is shooting at
+something floating. A shot at an air target is never landed on, so the useful
+reduction is the closest approach in three dimensions to a list of fixed points
+in space:
+
+```python
+from sixdof.montecarlo import AngleSweep, NearestApproach, SweepGrid
+
+points = [(16673.7, 200.0, 0.0), (16468.7, 197.5, 0.0)]   # (x, y, z) in m
+tracker = NearestApproach(points)
+
+sweep = AngleSweep(simulator, SweepGrid())
+table = sweep.run(reduce=lambda elev, azim, traj: tracker.absorb(traj, (elev, azim)))
+
+for approach in tracker.best():
+    print(approach.label, approach.distance_m, approach.time_s)
+```
+
+One grid walk answers both questions: `table` is the ordinary sweep, and
+`tracker` holds the pair that came nearest to each point, when it did, and how
+near. The accumulator keeps only a running best, so a sweep of tens of thousands
+of flights costs a few hundred bytes per point rather than storing anything.
+
+The points are static and nothing is matched to a time. That is the point of
+the abstraction: it does not know what the points *are*. A corridor of drone
+waypoints, a ladder of aim points and a line of range markers are the same
+problem to it, and the anti-air study is one caller among the possible ones.
+
 ---
 
 ## Layout
@@ -309,9 +340,9 @@ src/sixdof/
   plotting.py       the eighteen standard figures
   presets.py        the 5"/38 configuration used throughout the thesis
   aa/               target geometry, warhead, fuze, damage model
-  montecarlo/       sweep, point selection, dispersion, cost
+  montecarlo/       sweep, closest approach, point selection, dispersion, cost
 
-examples/           seven runnable scripts -- see examples/README.md
+examples/           runnable scripts -- see examples/README.md
 scripts/            proof_of_equivalence.py, reproduce_campaign_point.py
 tests/              the suite, including the bit-exact regression
 tests/reference/    frozen copies of the pre-refactor code (never imported)
