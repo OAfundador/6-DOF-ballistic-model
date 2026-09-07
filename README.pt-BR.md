@@ -374,6 +374,61 @@ diferente em nenhum dos ~19 000 doubles de cada trajetória:
 | Relatório antiaéreo de console | `legacy_motor.py` congelado | caractere por caractere |
 | Modelo de dano, 3 geometrias de burst | `apendice_dano.py` congelado | todos os valores iguais |
 
+### Uma conferência de fora: um caso M107 publicado
+
+Tudo acima compara o pacote com o motor de onde ele veio. Isso prova que a
+refatoração é fiel. Não prova que a física está certa, porque os dois lados
+compartilham as equações, os dados e qualquer erro em um dos dois.
+
+Então um exemplo voa o projétil de outra pessoa com os coeficientes de outra
+pessoa:
+
+```bash
+python examples/11_m107_benchmark.py
+```
+
+Ele pega o caso do obus 155 mm M107 e a Tabela 1 de
+
+> Khalil, M., Abdalla, H., Kamal, O., "Dispersion Analysis for Spinning
+> Artillery Projectile", ASAT-13, Military Technical College, Cairo, 2009
+
+e compara com os números que o próprio artigo declara no texto. Como segunda opinião, cita também o
+**[RigidFlightLab](https://github.com/timeout187/RigidFlightLab)** — vale a pena
+dar uma olhada no trabalho dele, fica a recomendação: é uma implementação aberta
+e independente do mesmo caso em outra formulação, referencial não-rolante,
+`[x,y,z,u,v,w,φ,θ,ψ,p,q,r]`, RK45, enquanto este pacote usa a forma vetorial do
+McCoy. Dois códigos que não compartilham uma linha de fonte nem o integrador,
+concordando sobre o projétil de um terceiro, é uma afirmação mais forte do que
+qualquer um dos dois faz sozinho — então este benchmark existe porque aquele
+projeto existe.
+
+| Grandeza | Artigo | Código indep. | Este pacote |
+| --- | --- | --- | --- |
+| Tempo de voo (s) | 66,67 | 66,40 | 66,137 |
+| Tempo ao apogeu (s) | 31,00 | 30,50 | 30,386 |
+| Desaceleração axial inicial (g) | −4,45 | −4,47 | −4,468 |
+| Ângulo de ataque máximo (°) | 1,29 | 1,30 | 1,287 |
+| Apogeu (m) | ~5600 | 5647 | 5635,7 |
+| Spin no impacto (rev/s) | — | 128,8 | 128,853 |
+| Deriva (m) | — | 483 | 482,821 |
+
+Dentro de 0,8% do artigo em tudo que ele publica como texto, e dentro de 0,5% do
+código independente. Os dois códigos ficam ~1,7% abaixo do artigo no apogeu,
+provavelmente porque o artigo usa uma atmosfera própria não especificada e
+inclui termos de Coriolis que nenhum dos dois implementa.
+
+Chegar lá exige duas conversões na entrada, e o exemplo foi escrito para deixar
+as duas visíveis em vez de silenciosamente certas. A Tabela 1 é adimensionalizada
+em `(pd/2V)` enquanto as equações do McCoy usam `(pd/V)`, então os quatro
+coeficientes dependentes de velocidade angular são divididos por 2 — o `CMA` não
+carrega taxa e passa ileso, que é a conferência cruzada que distingue diferença
+de convenção de tabela errada. E a Tabela 1 dá coeficientes de corpo, `C_A` e
+`C_Nα`, conforme a Nomenclature do próprio artigo, então precisam da rotação pelo
+ângulo de ataque descrita em
+[a tabela do 5"/38 que vem junto](#a-tabela-do-538-que-vem-junto). O script
+imprime a rodada com e sem cada hipótese, de modo que o preço delas é medido em
+vez de afirmado — só o fator 2 vale 61 m de deriva e 34 rev/s de spin.
+
 ### A campanha contra drone naval — o caso do TCC propriamente dito
 
 A camada antiaérea acima é trabalho novo. O que o TCC trata de fato é tiro de

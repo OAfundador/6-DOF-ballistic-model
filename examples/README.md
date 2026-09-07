@@ -18,6 +18,14 @@ All of them accept `--help`.
 | `05_monte_carlo.py` | Stage 3: perturbed firing, hit rates per hull and CEP. | hours (`--shots`/`--max-points` to shrink) |
 | `06_engagement_cost.py` | Stage 4: expected engagement cost and 95% confidence intervals. | seconds |
 | `07_bring_your_own_table.py` | Convert a source coefficient table into the seven the equations read, and measure what each convention choice costs. | seconds |
+| `11_m107_benchmark.py` | An outside check: fly a published 155 mm M107 case and compare against the paper's own numbers and against an independent reimplementation. | seconds |
+
+Script 11 stands apart from the pipeline, and from every other check in the
+repository. The rest compare the package against the engine it was refactored
+from, which proves the refactor faithful but cannot prove the physics right,
+because both sides share the equations and the data. This one flies somebody
+else's projectile, with somebody else's coefficients, against numbers the
+package had no hand in.
 
 Script 7 stands apart from the campaign. Converting a source tabulation into the
 seven is deliberately *not* in the package — see

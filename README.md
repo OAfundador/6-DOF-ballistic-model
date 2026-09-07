@@ -370,6 +370,60 @@ engine's raw bytes**. Matching digests mean no bit differs anywhere in roughly
 | Anti-air console report | frozen `legacy_motor.py` | character for character |
 | Damage model, 3 burst geometries | frozen `apendice_dano.py` | every quantity equal |
 
+### An outside check: a published M107 case
+
+Everything above compares the package against the engine it was refactored
+from. That proves the refactor faithful. It cannot prove the physics right,
+because both sides share the equations, the data and any mistake in either.
+
+So one example flies somebody else's projectile with somebody else's
+coefficients:
+
+```bash
+python examples/11_m107_benchmark.py
+```
+
+It takes the 155 mm M107 case and the Table 1 coefficients of
+
+> Khalil, M., Abdalla, H., Kamal, O., "Dispersion Analysis for Spinning
+> Artillery Projectile", ASAT-13, Military Technical College, Cairo, 2009
+
+and compares against the numbers the paper states in its own text. As a second opinion it also quotes
+**[RigidFlightLab](https://github.com/timeout187/RigidFlightLab)** — worth a
+look in its own right, and recommended: an independent open implementation of
+the same case in a different formulation, non-rolling frame,
+`[x,y,z,u,v,w,φ,θ,ψ,p,q,r]`, RK45, where this package uses McCoy's vector form.
+Two codes that share no line of source and no integrator, agreeing on a third
+party's projectile, is a stronger statement than either makes alone — so this
+benchmark exists because that project does.
+
+| Quantity | Paper | Independent code | This package |
+| --- | --- | --- | --- |
+| Time of flight (s) | 66.67 | 66.40 | 66.137 |
+| Time to summit (s) | 31.00 | 30.50 | 30.386 |
+| Initial axial deceleration (g) | −4.45 | −4.47 | −4.468 |
+| Maximum angle of attack (°) | 1.29 | 1.30 | 1.287 |
+| Apogee (m) | ~5600 | 5647 | 5635.7 |
+| Spin at impact (rev/s) | — | 128.8 | 128.853 |
+| Drift (m) | — | 483 | 482.821 |
+
+Within 0.8% of the paper on everything it publishes as text, and within 0.5% of
+the independent code. Both codes sit about 1.7% below the paper on apogee, most
+likely because the paper uses an unspecified atmosphere of its own and includes
+Coriolis terms neither code implements.
+
+Getting there needs two conversions on the way in, and the example is written to
+make both visible rather than quietly right. Table 1 is nondimensionalised on
+`(pd/2V)` while McCoy's equations use `(pd/V)`, so the four rate-dependent
+coefficients are halved — `CMA` carries no rate and passes through untouched,
+which is the cross-check that tells a convention mismatch apart from a wrong
+table. And Table 1 gives body-axis coefficients, `C_A` and `C_Nα`, per the
+paper's own Nomenclature, so they need the rotation through the angle of attack
+described under [the shipped 5"/38 table](#the-shipped-538-table). The script
+prints the run with and without each assumption, so their cost is measured
+rather than asserted — the factor of two alone is worth 61 m of drift and 34
+rev/s of spin.
+
 ### The naval-drone campaign — the thesis case proper
 
 The anti-air layer above is newer work. What the thesis is actually about is
