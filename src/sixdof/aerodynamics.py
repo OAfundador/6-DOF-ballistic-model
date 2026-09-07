@@ -61,7 +61,7 @@ from typing import Dict, Iterable, Mapping, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
-from scipy.interpolate import RectBivariateSpline, interp1d
+from scipy.interpolate import RectBivariateSpline, interp1d, make_interp_spline
 
 PathLike = Union[str, "os.PathLike[str]"]
 
@@ -186,6 +186,47 @@ class AerodynamicCoefficients:
             for name in EQUATION_COEFFICIENTS
         }
 
+        # Fast path for the Mach-only tables.  ``interp1d(kind="cubic")`` is
+        # ``make_interp_spline(k=3)`` underneath, so stacking those coefficients
+        # into one vector-valued spline returns bit-identical values from a
+        # single call instead of one wrapped scalar call each.  Coefficient
+        # lookup is ~77% of a trajectory's runtime and this is most of it.
+        self._stacked_names: Sequence[str] = ()
+        self._stacked_spline = None
+        self._scalar_names: Sequence[str] = EQUATION_COEFFICIENTS
+        self._build_stacked_evaluator()
+
+    # ------------------------------------------------------------------
+    def _build_stacked_evaluator(self) -> None:
+        """Collect the 1-D Mach tables into a single vector-valued spline.
+
+        Purely a speed change: ``make_interp_spline(x, Y, k=3)`` evaluates the
+        same cubic as ``interp1d(x, y, kind="cubic")`` on each column, to the
+        last bit.  Anything that is not a plain 1-D table keeps its own
+        evaluator.
+        """
+        stacked_names = []
+        columns = []
+        for name in EQUATION_COEFFICIENTS:
+            raw = self._raw[name]
+            if callable(raw) or self.mach_grid is None:
+                continue
+            array = np.asarray(raw, dtype=float)
+            if array.ndim == 1 and len(array) == len(self.mach_grid):
+                stacked_names.append(name)
+                columns.append(array)
+
+        if len(stacked_names) < 2:
+            return  # not worth a second code path
+
+        self._stacked_names = tuple(stacked_names)
+        self._stacked_spline = make_interp_spline(
+            self.mach_grid, np.column_stack(columns), k=3
+        )
+        self._scalar_names = tuple(
+            name for name in EQUATION_COEFFICIENTS if name not in self._stacked_names
+        )
+
     # ------------------------------------------------------------------
     def _make_evaluator(self, name: str, value):
         """Turn a scalar / 1-D table / 2-D grid / callable into ``f(mach, alpha)``."""
@@ -235,10 +276,14 @@ class AerodynamicCoefficients:
         if self.alpha_grid is not None:
             alpha_rad = np.clip(alpha_rad, self.alpha_grid[0], self.alpha_grid[-1])
 
-        return {
-            RHS_KEY[name]: float(evaluate(mach, alpha_rad))
-            for name, evaluate in self._evaluators.items()
-        }
+        values = {}
+        if self._stacked_spline is not None:
+            stacked = self._stacked_spline(mach)
+            for name, value in zip(self._stacked_names, stacked):
+                values[RHS_KEY[name]] = float(value)
+        for name in self._scalar_names:
+            values[RHS_KEY[name]] = float(self._evaluators[name](mach, alpha_rad))
+        return values
 
     def as_equation_names(self, mach: float, alpha_rad: float = 0.0) -> Dict[str, float]:
         """Same values, keyed by :data:`EQUATION_COEFFICIENTS` instead."""

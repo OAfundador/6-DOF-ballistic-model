@@ -20,6 +20,10 @@ All of them accept `--help`.
 | `07_bring_your_own_table.py` | Convert a source coefficient table into the seven the equations read, and measure what each convention choice costs. | seconds |
 | `11_m107_benchmark.py` | An outside check: fly a published 155 mm M107 case and compare against the paper's own numbers and against an independent reimplementation. | seconds |
 
+(The numbering skips 8 to 10. Those are an anti-air campaign study that is not
+part of this repository; the benchmark keeps its own number so that the two
+stay consistent if the rest is ever published.)
+
 Script 11 stands apart from the pipeline, and from every other check in the
 repository. The rest compare the package against the engine it was refactored
 from, which proves the refactor faithful but cannot prove the physics right,
