@@ -394,6 +394,36 @@ diferente em nenhum dos ~19 000 doubles de cada trajetória:
     idêntico                    : SIM
 ```
 
+#### Sobre o que "idêntico" é uma afirmação
+
+Os dois motores recebem **as mesmas matrizes de coeficientes** — o motor
+congelado constrói sua grade 100×100 a partir do
+`data/aero_coefficients_5in38.xlsx`, e o pacote recebe exatamente essas
+matrizes, e não o `.npz` que é o cache delas em `data/`. Então o que a igualdade
+demonstra é que os dois códigos concordam, que é a afirmação; não é, por
+acidente, também uma afirmação sobre a máquina em que você está.
+
+A distinção não é preciosismo. Três dos sete coeficientes — `CD`, `CLA`, `CNP` —
+são construídos com `sin` e `cos` da malha de guinada, e implementações de libm
+divergem na última casa entre plataformas (glibc e o runtime do MSVC diferem em
+até 1 ULP). O `.npz` foi assado uma vez, numa máquina. Comparar o assado com uma
+reconstrução em outro lugar e 1 ULP basta para o `solve_ivp` escolher uma
+sequência de passos diferente, igualmente válida — 1594 amostras em vez de 1592 —
+o que parece falha de física e não é.
+
+E a trigonometria não é a única culpada: a interpolação cúbica das colunas da
+fonte resolve um sistema tridiagonal, e builds de LAPACK não são mais portáteis
+bit a bit do que a libm — então até os quatro coeficientes sem `sin` nem `cos`
+divergem na última casa entre plataformas. Por isso o assado é conferido em
+**ULPs**, com orçamento de 8, contra os ~1e12 que um `.npz` desatualizado ou
+errado estaria fora. Isso mantém a conferência apontada para a falha que ela
+existe para pegar.
+
+O `.npz` é uma conveniência — evita reconstruir a grade a cada import, e é o que
+o `naval_5in38_coefficients()` devolve no uso normal. Nada da física depende de
+qual dos dois você carrega. O `tests/matched_coefficients.py` traz o relato
+completo.
+
 ### O que é conferido
 
 | Verificação | Contra o quê | Resultado |

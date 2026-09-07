@@ -389,6 +389,35 @@ engine's raw bytes**. Matching digests mean no bit differs anywhere in roughly
     idêntico                    : SIM
 ```
 
+#### What "identical" is a claim about
+
+Both engines are handed **the same coefficient arrays** — the frozen engine
+builds its 100×100 grid from `data/aero_coefficients_5in38.xlsx`, and the
+package is given those very arrays rather than the `.npz` bake of them that
+ships in `data/`. So what the equality demonstrates is that the two bodies of
+code agree, which is the claim; it is not accidentally also a claim about the
+machine you are on.
+
+That distinction matters, and it is not pedantic. Three of the seven
+coefficients — `CD`, `CLA`, `CNP` — are built with `sin` and `cos` of the yaw
+mesh, and libm implementations disagree in the last place across platforms
+(glibc and the MSVC runtime differ by up to one ULP). The `.npz` was baked once,
+on one machine. Compare a bake against a rebuild somewhere else and one ULP is
+enough for `solve_ivp` to choose a different, equally valid step sequence — 1594
+samples instead of 1592 — which looks like a physics failure and is not one.
+
+Nor is trigonometry the only culprit: the cubic interpolation of the source
+columns solves a tridiagonal system, and LAPACK builds are no more bit-portable
+than libm, so even the four coefficients with no `sin` or `cos` in them drift by
+a last bit between platforms. The bake is therefore checked in **ULPs** — a
+budget of 8, against the ~1e12 a stale or wrong bake would be off by. That keeps
+the check pointed at the failure it is for.
+
+The `.npz` is a convenience — it saves rebuilding the grid on every import, and
+it is what `naval_5in38_coefficients()` returns for ordinary use. Nothing about
+the physics depends on which of the two you load. `tests/matched_coefficients.py`
+carries the full account.
+
 ### What is checked
 
 | Check | Against what | Result |

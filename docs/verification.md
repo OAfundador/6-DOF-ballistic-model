@@ -19,7 +19,7 @@ PROVA DE EQUIVALÊNCIA — motor original vs pacote refatorado
 AMBIENTE E PROCEDÊNCIA
 ==============================================================================
 
-  data (UTC)     : 2026-09-06 15:57:47
+  data (UTC)     : 2026-09-07 03:32:54
   python         : 3.11.15 (Linux)
   numpy          : 2.4.4
   scipy          : 1.17.1

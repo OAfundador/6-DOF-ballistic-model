@@ -312,35 +312,118 @@ def test_load_coefficients_refuses_an_unknown_table(tmp_path):
 # ----------------------------------------------------------------------
 # provenance: the example still reproduces the shipped table
 # ----------------------------------------------------------------------
+# These compare a *runtime* conversion of the source workbook against the
+# ``.npz`` bake of it that ships in ``data/``.  That is a claim about the
+# shipped file, not about the physics, and unlike the physics it cannot be an
+# exact equality: three of the seven are built with ``sin``/``cos`` of the yaw
+# mesh, libm differs in the last place between platforms, and the bake happened
+# on one machine.  Asserting equality here would mean the suite passes or fails
+# on whether you happen to be running the operating system the file was made on.
+#
+# So: tight tolerance, and the exact-equality claim lives where it belongs, in
+# the engine-versus-engine tests that ``tests/conftest.py`` feeds from a single
+# source.  One ULP at these magnitudes is ~1e-16 relative, so 1e-12 catches a
+# genuinely stale or wrong bake by four orders of magnitude while ignoring libm.
+
+#: Relative tolerance for "the shipped bake matches a fresh conversion".
+BAKE_TOLERANCE = 1e-12
+
+
 @pytest.mark.parametrize("mach", [0.3, 0.9, 1.05, 1.8, 2.7, 4.9])
 @pytest.mark.parametrize("alpha_deg", [-9.0, -2.0, 0.0, 1.5, 7.5])
 def test_example_reproduces_the_shipped_table(converted, coefficients, mach, alpha_deg):
-    """Converting the source table gives exactly what ``data/*.npz`` holds."""
+    """Converting the source table gives what ``data/*.npz`` holds."""
     alpha = np.radians(alpha_deg)
     a = converted.get_coefficients(mach, alpha)
     b = coefficients.get_coefficients(mach, alpha)
     for key in RHS_KEYS:
-        assert a[key] == b[key], key
+        assert a[key] == pytest.approx(b[key], rel=BAKE_TOLERANCE, abs=1e-14), key
 
 
-def test_example_reproduces_the_shipped_grids_bit_for_bit(converted):
+def test_example_reproduces_the_shipped_grids(converted):
     """Not just at sample points — the stored arrays themselves."""
     with np.load(str(AERO_COEFFICIENTS_5IN38)) as shipped:
+        # The axes are pure ``linspace``: those *are* exact everywhere.
         assert np.array_equal(shipped["mach_grid"], converted.mach_grid)
         assert np.array_equal(shipped["alpha_grid"], converted.alpha_grid)
         for name in EQUATION_COEFFICIENTS:
-            assert np.array_equal(
-                shipped[name], np.asarray(converted._raw[name], dtype=float)
+            fresh = np.asarray(converted._raw[name], dtype=float)
+            assert np.allclose(
+                shipped[name], fresh, rtol=BAKE_TOLERANCE, atol=1e-14
             ), name
+
+
+def _ulps_apart(a: np.ndarray, b: np.ndarray) -> float:
+    """Largest gap between two arrays, in units in the last place."""
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    scale = np.maximum(np.abs(a), np.abs(b))
+    step = np.spacing(np.maximum(scale, np.finfo(float).tiny))
+    return float(np.max(np.abs(a - b) / step))
+
+
+#: How far the bake may sit from a fresh conversion, in ULPs.
+#:
+#: This number is a *separator between two scales*, not a measurement, and it is
+#: worth being explicit about that because the temptation is to tune it.
+#:
+#: Below, platform noise.  Every step of the conversion is floating point and
+#: none of it is bit-stable across machines: the trigonometry goes through libm,
+#: and the cubic interpolation of the source columns solves a 17-point
+#: tridiagonal system through LAPACK, whose builds differ between operating
+#: systems as well.  A backward-stable solve of that size accumulates on the
+#: order of tens of ULPs; measured values so far are 0 on Linux and 9 on
+#: Windows.
+#:
+#: Above, a real defect.  The failures this test exists to catch -- a bake made
+#: from a different source table, or with the yaw-drag sign or the factor of two
+#: applied differently -- move a coefficient by a *fraction*, which is something
+#: like 1e14 ULPs.
+#:
+#: Twelve orders of magnitude separate the two, so any value in the middle does
+#: the job and none of them is more correct than another.  1000 sits there with
+#: room on both sides.  If this ever fails, the answer is not to raise it.
+BAKE_ULP_BUDGET = 1000
+
+
+def test_the_bake_is_within_a_few_ulps_everywhere(converted):
+    """The shipped grids are the source table, to a handful of last bits.
+
+    Deliberately stated in ULPs rather than as an equality, and with a budget
+    chosen to separate two scales rather than to fit any measurement -- see
+    :data:`BAKE_ULP_BUDGET`.
+
+    Two earlier versions of this test were wrong, both in the same way.  The
+    first asserted that the four coefficients built without ``sin`` or ``cos``
+    matched the bake *exactly* on any platform, on the reasoning that plain
+    interpolation has nothing platform-dependent in it; that reasoning was
+    wrong, because ``interp1d(kind="cubic")`` solves a tridiagonal system and
+    LAPACK is no more bit-portable than libm.  The second kept the ULP form but
+    set the budget to 8, which was a guess taken from one machine; Windows
+    produced 9.  Both held where they were written, which is how an assumption
+    like that survives long enough to ship.
+    """
+    with np.load(str(AERO_COEFFICIENTS_5IN38)) as shipped:
+        for name in EQUATION_COEFFICIENTS:
+            fresh = np.asarray(converted._raw[name], dtype=float)
+            gap = _ulps_apart(shipped[name], fresh)
+            assert gap <= BAKE_ULP_BUDGET, f"{name}: {gap:.1f} ULPs"
 
 
 @pytest.mark.slow
 def test_example_and_default_fly_identically(converted, coefficients):
-    """And the whole trajectory is the same, bit for bit."""
+    """And the whole trajectory agrees to well inside any physical meaning."""
     a = _run(converted)
     b = _run(coefficients)
-    assert np.array_equal(a.t, b.t)
-    assert np.array_equal(a.solution.y, b.solution.y)
+    # Sample times may differ: a last-bit difference in the coefficients moves
+    # the adaptive step sequence, which is why this is not an array comparison.
+    # The apogee gets a looser bound than the other two because it is read off a
+    # flat maximum -- where dy/dt = 0, moving the sample grid moves the sampled
+    # peak far more than it moves the range or the flight time. 1e-6 relative is
+    # still under a centimetre on a 5.7 km summit.
+    assert a.flight_time == pytest.approx(b.flight_time, rel=1e-9)
+    assert a.max_range == pytest.approx(b.max_range, rel=1e-9)
+    assert a.max_altitude == pytest.approx(b.max_altitude, rel=1e-6)
 
 
 def test_example_rejects_a_table_without_its_mach_column(example):

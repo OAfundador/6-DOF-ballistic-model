@@ -53,6 +53,9 @@ import compat  # noqa: E402
 import legacy_motor as frozen_aa_engine  # noqa: E402
 import motor_original as frozen_engine  # noqa: E402
 
+sys.path.insert(0, str(REPO_ROOT / "tests"))
+from matched_coefficients import coefficients_from_frozen  # noqa: E402
+
 from sixdof import (  # noqa: E402
     BallisticSimulator,
     Environment,
@@ -177,8 +180,10 @@ def frozen_aa_report() -> str:
     return buffer.getvalue()
 
 
-def refactored_aa_report() -> str:
+def refactored_aa_report(aero_coeffs=None) -> str:
     """The same report, produced through the refactored package."""
+    if aero_coeffs is None:
+        aero_coeffs = naval_5in38_coefficients()
     target = shahed_136(center=(16673.0, 200.0, 0.7))
     warhead = vt_fcl_mk49()
     fuze = ProximityFuze(target_center=target.center, radius_m=24.38, arm_time_s=0.5)
@@ -187,7 +192,7 @@ def refactored_aa_report() -> str:
         projectile=naval_5in38_projectile(name='Projetil Naval 5"/38 AA VT(FCL)'),
         weapon=naval_5in38_gun(elevation_deg=39.6, azimuth_deg=-1.35),
         environment=standard_atmosphere(),
-        aero_coeffs=naval_5in38_coefficients(),
+        aero_coeffs=aero_coeffs,
     )
 
     buffer = io.StringIO()
@@ -299,7 +304,7 @@ def check_derived(out, coefficients_frozen, coefficients_new) -> bool:
     return all_equal
 
 
-def check_aa_report(out) -> bool:
+def check_aa_report(out, aero_coeffs=None) -> bool:
     out(header("3. RELATÓRIO ANTIAÉREO — comparação caractere por caractere"))
     out("")
     out("O `legacy_motor.py` congelado roda a main canônica do artigo; o pacote")
@@ -308,7 +313,7 @@ def check_aa_report(out) -> bool:
     out("")
 
     old_text = frozen_aa_report()
-    new_text = refactored_aa_report()
+    new_text = refactored_aa_report(aero_coeffs)
     old_lines = report_body(old_text)
     new_lines = report_body(new_text)
 
@@ -518,12 +523,18 @@ def main() -> int:
 
     with contextlib.redirect_stdout(io.StringIO()):
         coefficients_frozen = frozen_engine.RealAerodynamicCoefficients(str(AERO_SOURCE_5IN38))
-    coefficients_new = naval_5in38_coefficients()
+    # The package is handed the frozen engine's *own* grids rather than the
+    # shipped .npz bake of them.  Both sides then hold the same numbers, so what
+    # this proves is that the code agrees -- which is the claim -- rather than
+    # that you are running the operating system the .npz was baked on.  Three of
+    # the seven are built with sin/cos of the yaw mesh, and libm differs in the
+    # last place across platforms; see tests/conftest.py.
+    coefficients_new = coefficients_from_frozen(coefficients_frozen)
 
     results = {
         "trajetórias": check_trajectories(out, coefficients_frozen, coefficients_new),
         "grandezas derivadas": check_derived(out, coefficients_frozen, coefficients_new),
-        "relatório antiaéreo": check_aa_report(out),
+        "relatório antiaéreo": check_aa_report(out, coefficients_new),
         "modelo de dano": check_damage_model(out),
         "seleção de pontos": check_selection(out),
     }

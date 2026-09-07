@@ -36,6 +36,7 @@ from sixdof import (  # noqa: E402
     Projectile,
     Weapon,
 )
+from matched_coefficients import FROZEN_TO_PACKAGE  # noqa: E402
 from sixdof.paths import AERO_SOURCE_5IN38  # noqa: E402
 
 #: The seven coefficients the equations read, as keyed inside the right-hand side.
@@ -58,13 +59,20 @@ SCENARIO = dict(
 
 
 @pytest.fixture(scope="module")
-def legacy_coefficients():
-    return legacy.RealAerodynamicCoefficients(str(AERO_SOURCE_5IN38))
+def legacy_coefficients(frozen_aero):
+    return frozen_aero
 
 
 @pytest.fixture(scope="module")
-def refactored_coefficients():
-    return naval_5in38_coefficients()
+def refactored_coefficients(matched_aero):
+    """The package's object, carrying the frozen engine's own grids.
+
+    Not ``naval_5in38_coefficients()``: that loads the shipped ``.npz``, whose
+    trigonometric coefficients were baked on one platform, and comparing a bake
+    against a runtime rebuild measures libm rather than physics.  See
+    ``tests/conftest.py``.
+    """
+    return matched_aero
 
 
 def _legacy_run(coefficients, **overrides):
@@ -333,3 +341,46 @@ def test_wind_is_identical(legacy_coefficients, refactored_coefficients):
 
     assert np.array_equal(old.t, new.t)
     assert np.array_equal(old.solution.y, new.solution.y)
+
+
+# ----------------------------------------------------------------------
+# the property that makes all of the above portable
+# ----------------------------------------------------------------------
+def test_the_package_side_carries_the_frozen_engine_s_own_arrays(
+    frozen_aero, matched_aero
+):
+    """Both engines must be fed identical numbers, not equivalent ones.
+
+    Every exact-equality test in this file rests on this.  If the package side
+    were built from the shipped ``.npz`` instead, the comparison would also be
+    testing whether that bake — made once, on one machine — matches a rebuild
+    here; three of the seven are built with ``sin``/``cos`` of the yaw mesh, and
+    libm differs in the last place across platforms, so the suite would pass or
+    fail on the operating system rather than on the code.
+
+    ``matched_coefficients.py`` has the full account.
+    """
+    for frozen_name, package_name in FROZEN_TO_PACKAGE.items():
+        theirs = np.asarray(frozen_aero.grid_2d[frozen_name], dtype=float)
+        ours = np.asarray(matched_aero._raw[package_name], dtype=float)
+        assert np.array_equal(theirs, ours), package_name
+
+    assert np.array_equal(frozen_aero.mach_grid, matched_aero.mach_grid)
+    assert np.array_equal(frozen_aero.alpha_grid, matched_aero.alpha_grid)
+
+
+def test_a_last_bit_difference_in_the_bake_cannot_reach_these_tests():
+    """The failure mode this guards against, reproduced and shown harmless.
+
+    Nudging one cell of the shipped grid by a single ULP — the size of a libm
+    disagreement — breaks equality against the frozen engine on the old path,
+    and cannot touch the matched path, which never reads the file.
+    """
+    from sixdof import naval_5in38_coefficients
+
+    baked = np.asarray(naval_5in38_coefficients()._raw["CD"], dtype=float).copy()
+    nudged = baked.copy()
+    nudged[50, 50] = np.nextafter(nudged[50, 50], np.inf)
+
+    assert not np.array_equal(nudged, baked)          # the old path would fail
+    assert abs(nudged[50, 50] - baked[50, 50]) < 1e-16  # by one ULP, no more

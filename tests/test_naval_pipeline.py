@@ -64,8 +64,14 @@ TARGET_VALUE = 289_000_000
 
 
 @pytest.fixture(scope="module")
-def coefficients():
-    return naval_5in38_coefficients()
+def coefficients(matched_aero):
+    """The frozen engine's own grids, wrapped for the package.
+
+    This file compares the two engines, so both sides must be fed the same
+    numbers; ``tests/conftest.py`` explains why the shipped ``.npz`` is not
+    the same numbers on every platform.
+    """
+    return matched_aero
 
 
 @pytest.fixture(scope="module")
@@ -76,9 +82,9 @@ def simulator(coefficients):
 
 
 @pytest.fixture(scope="module")
-def frozen_simulator():
+def frozen_simulator(frozen_aero):
     with contextlib.redirect_stdout(io.StringIO()):
-        coefficients = frozen_engine.RealAerodynamicCoefficients(str(AERO_SOURCE_5IN38))
+        coefficients = frozen_aero
         projectile = frozen_engine.Projectile.from_imperial(
             'Projétil Naval 5"/38', 68.10, 5.0, 240.9, 2619.0, 25.0
         )
