@@ -246,6 +246,85 @@ vez de adivinhar.
 
 O `examples/07_bring_your_own_table.py` é a conversão trabalhada para copiar.
 
+#### Uma fonte calculada: o SPIN-73 reconstruído
+
+Quando não há tabela impressa para o seu projétil, os coeficientes podem ser
+calculados da geometria. O [`spin73`](https://github.com/OAfundador/aeroballistics)
+é uma reconstrução do SPIN-73 (Whyte, 1973), o programa que gerou a tabela do
+5"/38 usada no TCC: dado o cartão — comprimentos em calibres, CG, meplat, cinta,
+raio da ogiva — ele devolve a tabela nos 17 Mach do programa, na convenção do
+relatório de 1973. O `examples/14_spin73_coefficients.py` converte essa saída nos
+sete. Mesma regra de cima: a conversão fica ao lado da fonte, não no pacote.
+
+```bash
+pip install git+https://github.com/OAfundador/aeroballistics
+
+# o cartão do 5"/38, voado contra a tabela transcrita no tiro de referência
+python examples/14_spin73_coefficients.py
+
+# qualquer projétil: grava os sete uma vez e carrega como qualquer tabela
+python examples/14_spin73_coefficients.py --cartao VL=4.05 VN=1.90 VB=0.40 VCG=2.51 OR=7.9 --write data/meu_projetil
+```
+
+```python
+coeffs = load_coefficients("data/meu_projetil.npz")
+```
+
+Opções: `--magnus secante|polinomio` (o momento de Magnus das duas secantes da
+biblioteca, ou o polinômio par), `--mach linear|cubica` (a interpolação da
+biblioteca entre os nós de Mach, ou a do exemplo 07), `--correcao voo_livre
+--d-mm <d>` (a correção de arrasto de voo livre da biblioteca).
+
+O que a conversão faz — a dedução, termo a termo, está na docstring do script:
+
+| Os sete | Da saída do SPIN-73 | Por quê |
+| --- | --- | --- |
+| `CD` | `(CX0 + CX2 sen²α) cos α + CNA sen²α` | eixos do corpo para eixos do vento; `CX` positivo para trás |
+| `CLA` | `CNA cos α − (CX0 + CX2 sen²α)` | o vetor de sustentação já carrega `sen α` |
+| `CMA` | `CMA` | por `sen α` nos dois, no CG, positivo tomba |
+| `CYP` | `CYPA / 2` | por `sen α`; `pd/2V` para `pd/V` |
+| `CNP` | secante do momento de Magnus `/ 2`, par em α | o vetor do momento já carrega `sen α` |
+| `CMQ`, `CLP` | `/ 2` | `qd/2V`, `pd/2V` para `qd/V`, `pd/V` |
+
+O `tests/test_spin73_coupling.py` confere contra a convenção moderna da própria
+biblioteca, uma dedução independente da mesma conversão, e confere as direções:
+o arrasto sobe e a sustentação cai com a guinada, força e momento de Magnus
+dividem o mesmo sinal pela relação de braço `CNPA = (VCG − CPF1)·CYPA`, e uma
+granada de raiamento à direita deriva para a direita com o nariz à direita da
+velocidade no apogeu.
+
+Antes de confiar:
+
+- **A reconstrução não é referência.** Boa parte dela foi inferida das tabelas
+  impressas, e muitas células do scan são ilegíveis. Recalculado do cartão, o
+  5"/38 voa o tiro de referência de 43,3° 15 m mais curto que a tabela
+  transcrita, 6,8 m com a mesma interpolação cúbica em Mach — mede o quanto as
+  duas tabelas discordam, não qual está certa.
+- **O SPIN-73 é um modelo empírico de 1973**, com os erros prováveis da Tabela 1
+  do Whyte. Pelo próprio autor, Magnus e amortecimento são os mais mal
+  determinados.
+- **O sentido do Magnus é convenção, não medida**: o SPIN-73 tira a análise de
+  estabilidade do Murphy, de onde vem a formulação do McCoy. Neste projétil os
+  termos de Magnus são menos de 0,2 % da deriva, então nenhuma comparação de
+  trajetória decide.
+- **A grade de guinada cobre ±10° e trava além disso**; o simulador avisa quando
+  um voo passa disso (próxima seção).
+- O `spin73` é opcional. Sem ele o script diz como instalar e os testes dele são
+  pulados.
+
+#### Avisos de ângulo de ataque
+
+Todo coeficiente aqui é de pequena guinada. Depois de cada voo o `simulate()`
+confere o ângulo de ataque total e levanta `HighAngleOfAttackWarning` acima de
+10° (a formulação dos coeficientes deixa de descrever o escoamento) e
+`AngleOfAttackSingularityWarning` acima de 175° (o `acos` e a direção de todo
+termo que depende da guinada ficam mal condicionados). Tiro tenso não dispara
+nenhum; tiro curvo chega no primeiro perto do apogeu. A trajetória não muda. O
+texto da mensagem é fixo, então um Monte Carlo imprime uma vez por ponto de
+chamada; os números — máximo, quando, tempo acima do limite — ficam em
+`trajectory.diagnostics`. Os limites são `simulate(alpha_warning_deg=...,
+alpha_singularity_deg=...)`.
+
 #### A tabela do 5"/38 que vem junto
 
 - `data/aero_coefficients_5in38_spin73.npz` — os sete, no grid `(Mach, ângulo)`
@@ -340,6 +419,7 @@ src/sixdof/
   dynamics.py       equações de movimento e estado inicial
   events.py         condições de parada: solo e espoleta de proximidade
   simulator.py      driver de integração
+  diagnostics.py    avisos de ângulo de ataque levantados após cada voo
   trajectory.py     históricos de estado, grandezas derivadas, estatísticas
   plotting.py       os dezoito gráficos padrão
   presets.py        a configuração 5"/38 usada em todo o TCC

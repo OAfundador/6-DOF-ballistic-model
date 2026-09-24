@@ -242,6 +242,86 @@ guessing at it.
 `examples/07_bring_your_own_table.py` is a worked conversion to copy from. It
 takes the 5"/38 source table apart and measures what each choice costs.
 
+#### A computed source: the reconstructed SPIN-73
+
+When there is no printed table for your projectile, the coefficients can be
+computed from its geometry. [`spin73`](https://github.com/OAfundador/aeroballistics)
+is a reconstruction of SPIN-73 (Whyte, 1973), the program that produced the
+5"/38 table the thesis flew: given the card — lengths in calibers, CG, meplat,
+band, ogive radius — it returns the table at the program's 17 Mach numbers, in
+the 1973 report's convention. `examples/14_spin73_coefficients.py` converts that
+output into the seven. Same rule as above: the conversion sits next to the
+source, not in the package.
+
+```bash
+pip install git+https://github.com/OAfundador/aeroballistics
+
+# the 5"/38 card, flown against the transcribed table on the reference shot
+python examples/14_spin73_coefficients.py
+
+# any projectile: write the seven once, then load them like any other table
+python examples/14_spin73_coefficients.py --cartao VL=4.05 VN=1.90 VB=0.40 VCG=2.51 OR=7.9 --write data/my_shell
+```
+
+```python
+coeffs = load_coefficients("data/my_shell.npz")
+```
+
+Options: `--magnus secante|polinomio` (the library's two-secant Magnus moment,
+or the even polynomial), `--mach linear|cubica` (the library's interpolation
+between its Mach nodes, or example 07's), `--correcao voo_livre --d-mm <d>`
+(the library's free-flight drag correction).
+
+What the conversion does — the derivation, term by term, is in the script's
+docstring:
+
+| The seven | From the SPIN-73 output | Why |
+| --- | --- | --- |
+| `CD` | `(CX0 + CX2 sin²α) cos α + CNA sin²α` | body axes to wind axes; `CX` counted rearward |
+| `CLA` | `CNA cos α − (CX0 + CX2 sin²α)` | the lift vector already carries `sin α` |
+| `CMA` | `CMA` | per `sin α` in both, about the CG, positive overturning |
+| `CYP` | `CYPA / 2` | per `sin α`; `pd/2V` to `pd/V` |
+| `CNP` | Magnus moment secant slope `/ 2`, even in α | the moment vector already carries `sin α` |
+| `CMQ`, `CLP` | `/ 2` | `qd/2V`, `pd/2V` to `qd/V`, `pd/V` |
+
+`tests/test_spin73_coupling.py` checks it against the library's own modern
+convention, an independent statement of the same conversion, and checks the
+directions: drag rises and lift slope falls with yaw, the Magnus force and moment
+share one sign through the lever relation `CNPA = (VCG − CPF1)·CYPA`, and a
+right-hand shell drifts right with its nose right of the velocity at the summit.
+
+Before relying on it:
+
+- **The reconstruction is not a reference.** Much of it was inferred from the
+  printed tables, and many cells of the scan are illegible. Recomputed from the
+  card, the 5"/38 flies the 43.3° reference shot 15 m short of the transcribed
+  table, 6.8 m with the same cubic Mach interpolation — a measure of how much
+  the two tables disagree, not of which one is right.
+- **SPIN-73 is a 1973 empirical model**, with the probable errors of Whyte's
+  Table 1. By its author's own account, Magnus and damping are the least well
+  determined.
+- **The Magnus direction is a convention, not a measurement**: SPIN-73 takes its
+  stability analysis from Murphy, the formulation McCoy's descends from. For
+  this shell the Magnus terms are under 0.2 % of the drift, so no trajectory
+  comparison settles it.
+- **The yaw grid covers ±10° and clips beyond**; the simulator warns when a
+  flight goes past it (next section).
+- `spin73` is optional. Without it the script says how to install it and its
+  tests are skipped.
+
+#### Angle-of-attack warnings
+
+Every coefficient here is a small-yaw quantity. After each flight `simulate()`
+checks the total angle of attack and raises `HighAngleOfAttackWarning` above
+10° (the coefficient formulation no longer describes the flow) and
+`AngleOfAttackSingularityWarning` above 175° (`acos` and the direction of every
+yaw-dependent term become ill-conditioned). Flat fire never triggers either;
+high-angle fire reaches the first near the summit. The trajectory is not
+changed. The message text is fixed, so a Monte Carlo run prints it once per
+call site; the numbers — maximum, when, time above the limit — are in
+`trajectory.diagnostics`. The limits are `simulate(alpha_warning_deg=...,
+alpha_singularity_deg=...)`.
+
 #### The shipped 5"/38 table
 
 - `data/aero_coefficients_5in38_spin73.npz` — the seven, on the full `(Mach,
@@ -336,6 +416,7 @@ src/sixdof/
   dynamics.py       equations of motion and the initial state
   events.py         ground impact and proximity fuze stop conditions
   simulator.py      integration driver
+  diagnostics.py    angle-of-attack warnings raised after each flight
   trajectory.py     state histories, derived quantities, statistics
   plotting.py       the eighteen standard figures
   presets.py        the 5"/38 configuration used throughout the thesis
