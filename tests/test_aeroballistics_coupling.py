@@ -1,8 +1,8 @@
-"""The reconstructed SPIN-73 as a coefficient source (examples/14).
+"""aeroballistics as a coefficient source (examples/14).
 
-Skipped when ``spin73`` is not installed; the package does not depend on it.
+Skipped when ``aeroballistics`` is not installed; the package does not depend on it.
 The checks are about the conversion -- sines, directions, the factor of two --
-not about whether the reconstruction is right.
+not about whether the library's table is right.
 """
 
 from __future__ import annotations
@@ -14,14 +14,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-spin73 = pytest.importorskip("spin73")
+aeroballistics = pytest.importorskip("aeroballistics")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _load_example():
-    path = REPO_ROOT / "examples" / "14_spin73_coefficients.py"
-    spec = importlib.util.spec_from_file_location("spin73_coefficients", path)
+    path = REPO_ROOT / "examples" / "14_aeroballistics_coefficients.py"
+    spec = importlib.util.spec_from_file_location("aeroballistics_coefficients", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -39,12 +39,12 @@ def report(example):
 
 @pytest.fixture(scope="module")
 def modern(example):
-    return spin73.Aerodinamica(spin73.Projetil(**example.CARD_5IN38), convencao="moderna")
+    return aeroballistics.Aerodinamica(aeroballistics.Projetil(**example.CARD_5IN38), convencao="moderna")
 
 
 @pytest.fixture(scope="module")
 def ours(example, report):
-    return example.from_spin73(report)
+    return example.from_aeroballistics(report)
 
 
 def _at_nodes(coefficients, alpha_deg):
@@ -108,7 +108,7 @@ def test_moments_are_force_times_lever_arm_in_the_source(report):
 
 def test_the_transcribed_workbook_carries_the_same_lever_relation():
     # The same relation in the table typed from print, which the
-    # reconstruction had no hand in: Magnus force and moment share one sign
+    # library had no hand in: Magnus force and moment share one sign
     # convention there too.
     frame = pd.read_excel(REPO_ROOT / "data" / "aero_coefficients_5in38.xlsx")
     lever = (2.710 - frame["CPF1"]) * frame["CYP"]
@@ -133,7 +133,7 @@ def test_written_out_secant_is_the_librarys_momento_magnus(example, report):
 
 def test_modern_input_is_refused(example, modern):
     with pytest.raises(ValueError, match="convencao='spin73'"):
-        example.from_spin73(modern)
+        example.from_aeroballistics(modern)
 
 
 @pytest.mark.slow
@@ -153,6 +153,6 @@ def test_flown_it_stays_near_the_transcribed_table(example, report):
     # Same cubic Mach interpolation as the transcribed table, so what is left
     # is the difference between the two tables.
     a = example.fly(example._transcribed_table(), 43.3)
-    b = example.fly(example.from_spin73(report, mach_interp="cubica"), 43.3)
+    b = example.fly(example.from_aeroballistics(report, mach_interp="cubica"), 43.3)
     assert abs(b.max_range - a.max_range) < 1e-3 * a.max_range
     assert abs(b.z[-1] - a.z[-1]) < 0.01 * abs(a.z[-1])

@@ -242,14 +242,14 @@ guessing at it.
 `examples/07_bring_your_own_table.py` is a worked conversion to copy from. It
 takes the 5"/38 source table apart and measures what each choice costs.
 
-#### A computed source: the reconstructed SPIN-73
+#### A computed source: aeroballistics, adapted from SPIN-73
 
 When there is no printed table for your projectile, the coefficients can be
-computed from its geometry. [`spin73`](https://github.com/OAfundador/aeroballistics)
-is a reconstruction of SPIN-73 (Whyte, 1973), the program that produced the
+computed from its geometry. [`aeroballistics`](https://github.com/OAfundador/aeroballistics)
+is a library inspired by and adapted from SPIN-73 (Whyte, 1973), the program that produced the
 5"/38 table the thesis flew: given the card — lengths in calibers, CG, meplat,
 band, ogive radius — it returns the table at the program's 17 Mach numbers, in
-the 1973 report's convention. `examples/14_spin73_coefficients.py` converts that
+the 1973 report's convention. `examples/14_aeroballistics_coefficients.py` converts that
 output into the seven. Same rule as above: the conversion sits next to the
 source, not in the package.
 
@@ -257,10 +257,10 @@ source, not in the package.
 pip install git+https://github.com/OAfundador/aeroballistics
 
 # the 5"/38 card, flown against the transcribed table on the reference shot
-python examples/14_spin73_coefficients.py
+python examples/14_aeroballistics_coefficients.py
 
 # any projectile: write the seven once, then load them like any other table
-python examples/14_spin73_coefficients.py --cartao VL=4.05 VN=1.90 VB=0.40 VCG=2.51 OR=7.9 --write data/my_shell
+python examples/14_aeroballistics_coefficients.py --cartao VL=4.05 VN=1.90 VB=0.40 VCG=2.51 OR=7.9 --write data/my_shell
 ```
 
 ```python
@@ -275,7 +275,7 @@ between its Mach nodes, or example 07's), `--correcao voo_livre --d-mm <d>`
 What the conversion does — the derivation, term by term, is in the script's
 docstring:
 
-| The seven | From the SPIN-73 output | Why |
+| The seven | From the aeroballistics output (report convention) | Why |
 | --- | --- | --- |
 | `CD` | `(CX0 + CX2 sin²α) cos α + CNA sin²α` | body axes to wind axes; `CX` counted rearward |
 | `CLA` | `CNA cos α − (CX0 + CX2 sin²α)` | the lift vector already carries `sin α` |
@@ -284,7 +284,7 @@ docstring:
 | `CNP` | Magnus moment secant slope `/ 2`, even in α | the moment vector already carries `sin α` |
 | `CMQ`, `CLP` | `/ 2` | `qd/2V`, `pd/2V` to `qd/V`, `pd/V` |
 
-`tests/test_spin73_coupling.py` checks it against the library's own modern
+`tests/test_aeroballistics_coupling.py` checks it against the library's own modern
 convention, an independent statement of the same conversion, and checks the
 directions: drag rises and lift slope falls with yaw, the Magnus force and moment
 share one sign through the lever relation `CNPA = (VCG − CPF1)·CYPA`, and a
@@ -292,7 +292,7 @@ right-hand shell drifts right with its nose right of the velocity at the summit.
 
 Before relying on it:
 
-- **The reconstruction is not a reference.** Much of it was inferred from the
+- **The adaptation is not a reference.** Much of it was inferred from the
   printed tables, and many cells of the scan are illegible. Recomputed from the
   card, the 5"/38 flies the 43.3° reference shot 15 m short of the transcribed
   table, 6.8 m with the same cubic Mach interpolation — a measure of how much
@@ -309,7 +309,7 @@ Before relying on it:
   RigidFlightLab's moment term cannot be matched by a coefficient.
 - **The yaw grid covers ±10° and clips beyond**; the simulator warns when a
   flight goes past it (next section).
-- `spin73` is optional. Without it the script says how to install it and its
+- `aeroballistics` is optional. Without it the script says how to install it and its
   tests are skipped.
 
 #### Angle-of-attack warnings

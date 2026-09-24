@@ -246,24 +246,24 @@ vez de adivinhar.
 
 O `examples/07_bring_your_own_table.py` é a conversão trabalhada para copiar.
 
-#### Uma fonte calculada: o SPIN-73 reconstruído
+#### Uma fonte calculada: o aeroballistics, adaptado do SPIN-73
 
 Quando não há tabela impressa para o seu projétil, os coeficientes podem ser
-calculados da geometria. O [`spin73`](https://github.com/OAfundador/aeroballistics)
-é uma reconstrução do SPIN-73 (Whyte, 1973), o programa que gerou a tabela do
+calculados da geometria. O [`aeroballistics`](https://github.com/OAfundador/aeroballistics)
+é uma biblioteca inspirada e adaptada do SPIN-73 (Whyte, 1973), o programa que gerou a tabela do
 5"/38 usada no TCC: dado o cartão — comprimentos em calibres, CG, meplat, cinta,
 raio da ogiva — ele devolve a tabela nos 17 Mach do programa, na convenção do
-relatório de 1973. O `examples/14_spin73_coefficients.py` converte essa saída nos
+relatório de 1973. O `examples/14_aeroballistics_coefficients.py` converte essa saída nos
 sete. Mesma regra de cima: a conversão fica ao lado da fonte, não no pacote.
 
 ```bash
 pip install git+https://github.com/OAfundador/aeroballistics
 
 # o cartão do 5"/38, voado contra a tabela transcrita no tiro de referência
-python examples/14_spin73_coefficients.py
+python examples/14_aeroballistics_coefficients.py
 
 # qualquer projétil: grava os sete uma vez e carrega como qualquer tabela
-python examples/14_spin73_coefficients.py --cartao VL=4.05 VN=1.90 VB=0.40 VCG=2.51 OR=7.9 --write data/meu_projetil
+python examples/14_aeroballistics_coefficients.py --cartao VL=4.05 VN=1.90 VB=0.40 VCG=2.51 OR=7.9 --write data/meu_projetil
 ```
 
 ```python
@@ -277,7 +277,7 @@ biblioteca entre os nós de Mach, ou a do exemplo 07), `--correcao voo_livre
 
 O que a conversão faz — a dedução, termo a termo, está na docstring do script:
 
-| Os sete | Da saída do SPIN-73 | Por quê |
+| Os sete | Da saída do aeroballistics (convenção do relatório) | Por quê |
 | --- | --- | --- |
 | `CD` | `(CX0 + CX2 sen²α) cos α + CNA sen²α` | eixos do corpo para eixos do vento; `CX` positivo para trás |
 | `CLA` | `CNA cos α − (CX0 + CX2 sen²α)` | o vetor de sustentação já carrega `sen α` |
@@ -286,7 +286,7 @@ O que a conversão faz — a dedução, termo a termo, está na docstring do scr
 | `CNP` | secante do momento de Magnus `/ 2`, par em α | o vetor do momento já carrega `sen α` |
 | `CMQ`, `CLP` | `/ 2` | `qd/2V`, `pd/2V` para `qd/V`, `pd/V` |
 
-O `tests/test_spin73_coupling.py` confere contra a convenção moderna da própria
+O `tests/test_aeroballistics_coupling.py` confere contra a convenção moderna da própria
 biblioteca, uma dedução independente da mesma conversão, e confere as direções:
 o arrasto sobe e a sustentação cai com a guinada, força e momento de Magnus
 dividem o mesmo sinal pela relação de braço `CNPA = (VCG − CPF1)·CYPA`, e uma
@@ -295,7 +295,7 @@ velocidade no apogeu.
 
 Antes de confiar:
 
-- **A reconstrução não é referência.** Boa parte dela foi inferida das tabelas
+- **A adaptação não é referência.** Boa parte dela foi inferida das tabelas
   impressas, e muitas células do scan são ilegíveis. Recalculado do cartão, o
   5"/38 voa o tiro de referência de 43,3° 15 m mais curto que a tabela
   transcrita, 6,8 m com a mesma interpolação cúbica em Mach — mede o quanto as
@@ -312,7 +312,7 @@ Antes de confiar:
   termo de momento do RigidFlightLab não é reproduzível por coeficiente.
 - **A grade de guinada cobre ±10° e trava além disso**; o simulador avisa quando
   um voo passa disso (próxima seção).
-- O `spin73` é opcional. Sem ele o script diz como instalar e os testes dele são
+- O `aeroballistics` é opcional. Sem ele o script diz como instalar e os testes dele são
   pulados.
 
 #### Avisos de ângulo de ataque

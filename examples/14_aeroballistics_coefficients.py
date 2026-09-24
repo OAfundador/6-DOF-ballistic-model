@@ -1,11 +1,12 @@
-"""The reconstructed SPIN-73 as a coefficient source: its outputs, turned into the seven.
+"""aeroballistics as a coefficient source: its outputs, turned into the seven.
 
-``spin73`` (github.com/OAfundador/aeroballistics) computes a projectile's
-aerodynamic table from its geometry card, the way SPIN-73 (Whyte, 1973) did::
+``aeroballistics`` (github.com/OAfundador/aeroballistics), a library inspired by
+and adapted from SPIN-73 (Whyte, 1973), computes a projectile's aerodynamic
+table from its geometry card, the way SPIN-73 did::
 
     pip install git+https://github.com/OAfundador/aeroballistics
 
-It is a reconstruction, not a reference: much of it was inferred from the
+It is an adaptation, not a reference: much of it was inferred from the
 printed tables, and its authors say so.  Use it as a source to fly and compare,
 not as truth.
 
@@ -15,7 +16,7 @@ the data and not in the package): convert its output into the seven
 coefficients of ``sixdof.dynamics``.  It takes the output **in the report's own
 convention** (``convencao="spin73"``) and does every conversion here, so each
 one is written down once; the library's ``convencao="moderna"`` is kept as an
-independent check (``tests/test_spin73_coupling.py``).
+independent check (``tests/test_aeroballistics_coupling.py``).
 
 The mapping, term by term
 -------------------------
@@ -92,11 +93,11 @@ warns (``sixdof.diagnostics``).
 
 Usage::
 
-    python examples/14_spin73_coefficients.py
-    python examples/14_spin73_coefficients.py --magnus polinomio
-    python examples/14_spin73_coefficients.py --mach cubica
-    python examples/14_spin73_coefficients.py --correcao voo_livre --d-mm 127
-    python examples/14_spin73_coefficients.py --cartao VL=4.05 VN=1.90 VB=0.40 VCG=2.51 OR=7.9 --write data/meu_projetil
+    python examples/14_aeroballistics_coefficients.py
+    python examples/14_aeroballistics_coefficients.py --magnus polinomio
+    python examples/14_aeroballistics_coefficients.py --mach cubica
+    python examples/14_aeroballistics_coefficients.py --correcao voo_livre --d-mm 127
+    python examples/14_aeroballistics_coefficients.py --cartao VL=4.05 VN=1.90 VB=0.40 VCG=2.51 OR=7.9 --write data/meu_projetil
 """
 
 from __future__ import annotations
@@ -127,13 +128,13 @@ from sixdof import (  # noqa: E402
 from sixdof.paths import AERO_SOURCE_5IN38  # noqa: E402
 
 try:
-    import spin73
+    import aeroballistics
 except ImportError:  # pragma: no cover - only without the optional dependency
-    spin73 = None
+    aeroballistics = None
 
-#: The 5"/38 card as the reconstruction reads p. 53 of the report (calibers).
+#: The 5"/38 card as aeroballistics reads p. 53 of the report (calibers).
 #: VL is the field the scan leaves open between 4.580 and 4.600; 4.593 is the
-#: reconstruction's choice.  A reading, like the rest of the page.
+#: library's choice.  A reading, like the rest of the page.
 CARD_5IN38 = dict(VL=4.593, VN=2.150, VB=0.350, VCG=2.710, DM=0.100, BD=1.040,
                   OR=5.300, BOOM=0.0)
 
@@ -148,19 +149,19 @@ MACH_INTERPOLATIONS = ("linear", "cubica")
 _TABLE_KEY = {"CX0": "CX"}
 
 
-def _require_spin73():
-    if spin73 is None:
+def _require_aeroballistics():
+    if aeroballistics is None:
         raise SystemExit(
-            "este exemplo precisa do pacote spin73:\n"
+            "este exemplo precisa do pacote aeroballistics:\n"
             "    pip install git+https://github.com/OAfundador/aeroballistics"
         )
 
 
 def aerodynamics(card=None, correcoes=None, d_mm=None):
-    """``spin73.Aerodinamica`` for a card, in the report's own convention."""
-    _require_spin73()
-    projetil = spin73.Projetil(**(CARD_5IN38 if card is None else card))
-    return spin73.Aerodinamica(projetil, correcoes=correcoes, d_mm=d_mm, convencao="spin73")
+    """``aeroballistics.Aerodinamica`` for a card, in the report's own convention."""
+    _require_aeroballistics()
+    projetil = aeroballistics.Projetil(**(CARD_5IN38 if card is None else card))
+    return aeroballistics.Aerodinamica(projetil, correcoes=correcoes, d_mm=d_mm, convencao="spin73")
 
 
 def column(aero, name, mach, mach_interp="linear"):
@@ -180,7 +181,7 @@ def column(aero, name, mach, mach_interp="linear"):
 def magnus_secant(aero, mach, alpha_rad, form="secante", mach_interp="linear"):
     """Magnus moment per sin(a) -- the secant slope -- in the report's pd/2V.
 
-    ``secante`` is ``spin73.Aerodinamica.momento_magnus`` (linear in sin^2 a
+    ``secante`` is ``aeroballistics.Aerodinamica.momento_magnus`` (linear in sin^2 a
     between the 1 deg and 5 deg secants, held outside), written out so the
     Mach interpolation can be chosen; with ``mach_interp="linear"`` the two
     agree to the last bit (tested).
@@ -201,9 +202,9 @@ def magnus_secant(aero, mach, alpha_rad, form="secante", mach_interp="linear"):
     raise ValueError(f"magnus must be one of {MAGNUS_FORMS}")
 
 
-def from_spin73(aero, *, magnus="secante", mach_interp="linear", n_mach=100,
+def from_aeroballistics(aero, *, magnus="secante", mach_interp="linear", n_mach=100,
                 n_alpha=101, alpha_limit_deg=10.0) -> AerodynamicCoefficients:
-    """The seven the equations read, from a ``spin73.Aerodinamica``.
+    """The seven the equations read, from a ``aeroballistics.Aerodinamica``.
 
     ``aero`` must be in the report's convention (``convencao="spin73"``): the
     conversions are done here, and taking the library's modern output as well
@@ -211,7 +212,7 @@ def from_spin73(aero, *, magnus="secante", mach_interp="linear", n_mach=100,
     """
     if getattr(aero, "convencao", None) != "spin73":
         raise ValueError(
-            "from_spin73 converts the report's own convention; build the "
+            "from_aeroballistics converts the report's own convention; build the "
             "Aerodinamica with convencao='spin73' (got "
             f"{getattr(aero, 'convencao', None)!r})"
         )
@@ -243,7 +244,7 @@ def from_spin73(aero, *, magnus="secante", mach_interp="linear", n_mach=100,
 
 def coefficients(card=None, correcoes=None, d_mm=None, **kwargs):
     """Card to the seven in one call."""
-    return from_spin73(aerodynamics(card, correcoes, d_mm), **kwargs)
+    return from_aeroballistics(aerodynamics(card, correcoes, d_mm), **kwargs)
 
 
 # --------------------------------------------------------------------------
@@ -287,7 +288,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--mach", choices=MACH_INTERPOLATIONS, default="linear",
                         help="interpolação em Mach entre os 17 nós (padrão: linear, a da biblioteca)")
     parser.add_argument("--correcao", default=None,
-                        help="correção do spin73, por exemplo voo_livre ou voo_livre:CX0")
+                        help="correção do aeroballistics, por exemplo voo_livre ou voo_livre:CX0")
     parser.add_argument("--d-mm", type=float, default=None,
                         help="diâmetro real em mm (a correção de voo livre depende da escala)")
     parser.add_argument("--elevation", type=float, default=43.3, help="tiro de referência [graus]")
@@ -300,10 +301,10 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     card = _card(args.cartao)
     aero = aerodynamics(card, args.correcao, args.d_mm)
-    ours = from_spin73(aero, magnus=args.magnus, mach_interp=args.mach)
+    ours = from_aeroballistics(aero, magnus=args.magnus, mach_interp=args.mach)
 
     print("=" * 78)
-    print("SPIN-73 RECONSTRUÍDO → OS SETE COEFICIENTES DO MODELO")
+    print("AEROBALLISTICS (ADAPTADO DO SPIN-73) → OS SETE COEFICIENTES DO MODELO")
     print("=" * 78)
     for line in aero.descrever().splitlines():
         print(f"  {line}")
@@ -326,13 +327,13 @@ def main(argv=None) -> int:
         print(f"  TIRO DE REFERÊNCIA, elevação {args.elevation}°")
         print("-" * 78)
         print(f"  {'tabela':30s} {'alcance [m]':>12s} {'deriva [m]':>11s} {'α máx [°]':>10s}")
-        for label, tr in (("transcrita (a do artigo)", a), ("spin73 acoplada", b)):
+        for label, tr in (("transcrita (a do artigo)", a), ("aeroballistics acoplada", b)):
             print(f"  {label:30s} {tr.max_range:12.2f} {tr.z[-1]:11.2f} "
                   f"{float(np.max(tr.alpha_traj[tr.t > 1.0])):10.3f}")
         print(f"  {'diferença':30s} {b.max_range - a.max_range:+12.2f} {b.z[-1] - a.z[-1]:+11.2f}")
         print()
         print("  As duas tabelas vêm do mesmo programa por caminhos diferentes (uma")
-        print("  digitada do impresso, outra recalculada da geometria por uma reconstrução);")
+        print("  digitada do impresso, outra recalculada da geometria por uma adaptação);")
         print("  a diferença mede o quanto elas discordam, não qual está certa.")
         print()
 
