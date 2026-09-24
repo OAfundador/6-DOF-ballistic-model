@@ -102,12 +102,23 @@ MUZZLE_SPIN_RPS = 175.48     # rev/s
 MACH = np.array([0.01, 0.60, 0.80, 0.90, 0.95, 1.00, 1.05, 1.10, 1.20, 1.35, 1.50, 1.75, 2.00])
 C_A = np.array([.144, .144, .146, .167, .221, .327, .383, .381, .370, .353, .338, .314, .294])
 C_A_ALPHA2 = np.array([2.343, 2.343, 2.847, 3.372, 3.73, 4.180, 4.691, 5.209, 5.702, 5.130, 4.561, 3.970, 3.460])
-#: The paper tabulates the normal force and Magnus force negative; the sign is a
-#: convention of its axis system, and the magnitude is what the projection wants
-#: -- with the tabulated sign, drag would fall with yaw and the lift would point
-#: the wrong way.  Same reconciliation the 5"/38 table needs for ``C_X``.
+#: The paper tabulates the normal force negative; the sign is a convention of
+#: its axis system, and the magnitude is what the projection wants -- with the
+#: tabulated sign, drag would fall with yaw and the lift would point the wrong
+#: way.  Same reconciliation the 5"/38 table needs for ``C_X``.
 C_N_ALPHA = np.abs(np.array([-1.763, -1.763, -1.783, -1.827, -2.038, -2.153, -2.207, -2.255, -2.325, -2.442, -2.556, -2.692, -2.747]))
-CMAG_F = np.abs(np.array([-0.767, -0.767, -0.767, -0.857, -1.082, -0.992, -0.902, -0.857, -0.767, -0.767, -0.767, -0.767, -0.767]))
+#: The Magnus force keeps the tabulated sign.  It is the spinner-code sign -- the
+#: 5"/38 SPIN-73 table carries the same -0.77 -- and the equations here put the
+#: force along ``v x i``, so a negative ``C_Npa`` points it along ``i x v``.
+#: RigidFlightLab takes the magnitude because its force already acts along
+#: ``i x v``; an earlier version of this script copied that ``abs()`` into these
+#: equations, which reverses the force.  Checked by running RigidFlightLab, code
+#: untouched, with each input converted for its own equations (Magnus moment off
+#: in both, since its moment term cannot be matched by a coefficient): time of
+#: flight agrees to 0.02 % with this sign and parts by 0.5 % with it reversed.
+#: The force comes from the yaw of repose, which is horizontal, so the force is
+#: vertical: the sign shows in flight time and apogee, hardly in drift.
+CMAG_F = np.array([-0.767, -0.767, -0.767, -0.857, -1.082, -0.992, -0.902, -0.857, -0.767, -0.767, -0.767, -0.767, -0.767])
 CSPIN = np.array([-.023, -.023, -.022, -.021, -.020, -.020, -.020, -.019, -.020, -.020, -.020, -.020, -.021])
 CM_ALPHA = np.array([3.355, 3.378, 3.571, 3.957, 3.886, 3.682, 3.415, 3.384, 3.424, 3.278, 3.264, 3.201, 3.013])
 CMQ = np.array([-5.1, -5.1, -5.1, -7.4, -9.9, -13.8, -13.3, -14.6, -15.8, -15.6, -15.3, -15.3, -15.3])

@@ -300,10 +300,13 @@ Before relying on it:
 - **SPIN-73 is a 1973 empirical model**, with the probable errors of Whyte's
   Table 1. By its author's own account, Magnus and damping are the least well
   determined.
-- **The Magnus direction is a convention, not a measurement**: SPIN-73 takes its
-  stability analysis from Murphy, the formulation McCoy's descends from. For
-  this shell the Magnus terms are under 0.2 % of the drift, so no trajectory
-  comparison settles it.
+- **The Magnus force keeps SPIN-73's sign, and that is checked.** The 155 mm
+  M107 flown through RigidFlightLab, its code untouched and each input converted
+  for its own equations, agrees with this package to 0.02 % in flight time with
+  that sign and parts by 0.5 % with it reversed. The force comes from the yaw of
+  repose, which is horizontal, so it is vertical: it shows in flight time and
+  apogee, hardly in drift. The Magnus *moment* has no such check —
+  RigidFlightLab's moment term cannot be matched by a coefficient.
 - **The yaw grid covers ±10° and clips beyond**; the simulator warns when a
   flight goes past it (next section).
 - `spin73` is optional. Without it the script says how to install it and its
@@ -540,18 +543,20 @@ benchmark exists because that project does.
 
 | Quantity | Paper | Independent code | This package |
 | --- | --- | --- | --- |
-| Time of flight (s) | 66.67 | 66.40 | 66.137 |
-| Time to summit (s) | 31.00 | 30.50 | 30.386 |
+| Time of flight (s) | 66.67 | 66.40 | 66.455 |
+| Time to summit (s) | 31.00 | 30.50 | 30.521 |
 | Initial axial deceleration (g) | −4.45 | −4.47 | −4.468 |
-| Maximum angle of attack (°) | 1.29 | 1.30 | 1.287 |
-| Apogee (m) | ~5600 | 5647 | 5635.7 |
-| Spin at impact (rev/s) | — | 128.8 | 128.853 |
-| Drift (m) | — | 483 | 482.821 |
+| Maximum angle of attack (°) | 1.29 | 1.30 | 1.288 |
+| Apogee (m) | ~5600 | 5647 | 5651.0 |
+| Spin at impact (rev/s) | — | 128.8 | 128.751 |
+| Drift (m) | — | 483 | 480.833 |
 
-Within 0.8% of the paper on everything it publishes as text, and within 0.5% of
-the independent code. Both codes sit about 1.7% below the paper on apogee, most
-likely because the paper uses an unspecified atmosphere of its own and includes
-Coriolis terms neither code implements.
+Within 0.4% of the two numbers the paper states in its text — time of flight
+and initial deceleration — and within 0.5% of the independent code on everything
+but the maximum angle of attack (0.9%). Apogee, read off the paper's Fig. 4, and
+the time to summit are where the paper parts most from both codes, most likely
+because it uses an unspecified atmosphere of its own and includes Coriolis terms
+neither code implements.
 
 Getting there needs two conversions on the way in, and the example is written to
 make both visible rather than quietly right. Table 1 is nondimensionalised on
@@ -563,7 +568,11 @@ paper's own Nomenclature, so they need the rotation through the angle of attack
 described under [the shipped 5"/38 table](#the-shipped-538-table). The script
 prints the run with and without each assumption, so their cost is measured
 rather than asserted — the factor of two alone is worth 61 m of drift and 34
-rev/s of spin.
+rev/s of spin. The Magnus force keeps the sign Table 1 gives it: the independent
+code takes its magnitude because its force term already points the other way,
+and copying that into these equations — as an earlier version of the script did
+— reverses the force and costs 0.5% of flight time. The comment above `CMAG_F`
+in the script has the derivation and the check.
 
 ### The naval-drone campaign — the thesis case proper
 

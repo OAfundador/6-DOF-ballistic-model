@@ -303,10 +303,13 @@ Antes de confiar:
 - **O SPIN-73 é um modelo empírico de 1973**, com os erros prováveis da Tabela 1
   do Whyte. Pelo próprio autor, Magnus e amortecimento são os mais mal
   determinados.
-- **O sentido do Magnus é convenção, não medida**: o SPIN-73 tira a análise de
-  estabilidade do Murphy, de onde vem a formulação do McCoy. Neste projétil os
-  termos de Magnus são menos de 0,2 % da deriva, então nenhuma comparação de
-  trajetória decide.
+- **A força de Magnus fica com o sinal do SPIN-73, e isso está conferido.** O
+  155 mm M107 voado no RigidFlightLab, com o código dele intocado e cada entrada
+  convertida para as equações dele, concorda com este pacote em 0,02 % no tempo
+  de voo com esse sinal e se afasta 0,5 % com ele invertido. A força vem da guinada
+  de repouso, que é horizontal, então ela é vertical: aparece no tempo de voo e no
+  apogeu, quase nada na deriva. O *momento* de Magnus não tem essa conferência — o
+  termo de momento do RigidFlightLab não é reproduzível por coeficiente.
 - **A grade de guinada cobre ±10° e trava além disso**; o simulador avisa quando
   um voo passa disso (próxima seção).
 - O `spin73` é opcional. Sem ele o script diz como instalar e os testes dele são
@@ -546,18 +549,20 @@ projeto existe.
 
 | Grandeza | Artigo | Código indep. | Este pacote |
 | --- | --- | --- | --- |
-| Tempo de voo (s) | 66,67 | 66,40 | 66,137 |
-| Tempo ao apogeu (s) | 31,00 | 30,50 | 30,386 |
+| Tempo de voo (s) | 66,67 | 66,40 | 66,455 |
+| Tempo ao apogeu (s) | 31,00 | 30,50 | 30,521 |
 | Desaceleração axial inicial (g) | −4,45 | −4,47 | −4,468 |
-| Ângulo de ataque máximo (°) | 1,29 | 1,30 | 1,287 |
-| Apogeu (m) | ~5600 | 5647 | 5635,7 |
-| Spin no impacto (rev/s) | — | 128,8 | 128,853 |
-| Deriva (m) | — | 483 | 482,821 |
+| Ângulo de ataque máximo (°) | 1,29 | 1,30 | 1,288 |
+| Apogeu (m) | ~5600 | 5647 | 5651,0 |
+| Spin no impacto (rev/s) | — | 128,8 | 128,751 |
+| Deriva (m) | — | 483 | 480,833 |
 
-Dentro de 0,8% do artigo em tudo que ele publica como texto, e dentro de 0,5% do
-código independente. Os dois códigos ficam ~1,7% abaixo do artigo no apogeu,
-provavelmente porque o artigo usa uma atmosfera própria não especificada e
-inclui termos de Coriolis que nenhum dos dois implementa.
+Dentro de 0,4% dos dois números que o artigo dá no texto — tempo de voo e
+desaceleração inicial — e dentro de 0,5% do código independente em tudo menos o
+ângulo de ataque máximo (0,9%). O apogeu, lido da Fig. 4 do artigo, e o tempo ao
+apogeu são onde o artigo mais se afasta dos dois códigos, provavelmente porque
+ele usa uma atmosfera própria não especificada e inclui termos de Coriolis que
+nenhum dos dois implementa.
 
 Chegar lá exige duas conversões na entrada, e o exemplo foi escrito para deixar
 as duas visíveis em vez de silenciosamente certas. A Tabela 1 é adimensionalizada
@@ -569,7 +574,12 @@ de convenção de tabela errada. E a Tabela 1 dá coeficientes de corpo, `C_A` e
 ângulo de ataque descrita em
 [a tabela do 5"/38 que vem junto](#a-tabela-do-538-que-vem-junto). O script
 imprime a rodada com e sem cada hipótese, de modo que o preço delas é medido em
-vez de afirmado — só o fator 2 vale 61 m de deriva e 34 rev/s de spin.
+vez de afirmado — só o fator 2 vale 61 m de deriva e 34 rev/s de spin. A força
+de Magnus fica com o sinal que a Tabela 1 dá: o código independente usa o módulo
+porque o termo de força dele já aponta para o outro lado, e copiar isso para estas
+equações — como uma versão anterior do script fazia — inverte a força e custa
+0,5% do tempo de voo. O comentário acima de `CMAG_F` no script tem a dedução e a
+conferência.
 
 ### A campanha contra drone naval — o caso do TCC propriamente dito
 

@@ -57,13 +57,17 @@ with the result drifts right, nose right of the velocity at the summit (the yaw
 of repose).  The Magnus pair is fixed only relatively: SPIN-73 builds the
 moment as ``(VCG - CPF) CYPA``, and the equations, placing the force
 ``v x i`` at ``CPF``, give the moment along ``v - v cos a i`` with exactly that
-lever -- so force and moment keep the same sign, or both flip.  That neither
-flips is a convention argument, not a measurement: SPIN-73 takes its stability
+lever -- so force and moment keep the same sign, or both flip.  That the force
+does not flip is checked against an independent code: the 155 mm M107 flown
+through RigidFlightLab (github.com/timeout187/RigidFlightLab), its code
+untouched and each input converted for its own equations, agrees with this
+conversion to 0.02 % in flight time and parts by 0.5 % with the sign reversed.
+The force comes from the yaw of repose, which is horizontal, so it is vertical
+and shows in flight time and apogee rather than drift.  The moment has no such
+check -- RigidFlightLab's moment term cannot be matched by a coefficient -- and
+rests on the lever relation and on convention: SPIN-73 takes its stability
 analysis from Murphy (BRL 1216) and Nicolaides, the formulation McCoy's
-descends from, and its dynamic stability factor -- as far as the scan reads --
-carries the Magnus terms with the same signs as McCoy's.  The Magnus terms are
-under 0.2 % of the drift of this shell, so no trajectory comparison can settle
-it.
+descends from.
 
 **The Magnus moment.**  The equations want ``C_Mpa(a)``, the moment per
 ``sin a``, i.e. the secant slope, even in ``a``.  SPIN-73 prints two ways to
