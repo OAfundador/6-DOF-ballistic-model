@@ -19,10 +19,11 @@ All of them accept `--help`.
 | `06_engagement_cost.py` | Stage 4: expected engagement cost and 95% confidence intervals. | seconds |
 | `07_bring_your_own_table.py` | Convert a source coefficient table into the seven the equations read, and measure what each convention choice costs. | seconds |
 | `11_m107_benchmark.py` | An outside check: fly a published 155 mm M107 case and compare against the paper's own numbers and against an independent reimplementation. | seconds |
+| `14_spin73_coefficients.py` | The reconstructed SPIN-73 (`pip install git+https://github.com/OAfundador/aeroballistics`) as a coefficient source: its output converted term by term into the seven. | seconds |
 
-(The numbering skips 8 to 10. Those are an anti-air campaign study that is not
-part of this repository; the benchmark keeps its own number so that the two
-stay consistent if the rest is ever published.)
+(The numbering skips 8 to 10, 12 and 13. Those are an anti-air campaign study
+that is not part of this repository; the other scripts keep their own numbers so
+that the two stay consistent if the rest is ever published.)
 
 Script 11 stands apart from the pipeline, and from every other check in the
 repository. The rest compare the package against the engine it was refactored
@@ -37,6 +38,13 @@ seven is deliberately *not* in the package — see
 — so this is the worked example to copy when you bring your own table. It also
 documents the two respects in which the shipped 5"/38 table departs from the
 model's McCoy contract, and lets you fly the corrected version.
+
+Script 14 is the same step for a computed source: `spin73` builds the table
+from the projectile's geometry card, in the 1973 report's convention, and the
+script converts it -- which vectors in the equations already carry a `sin a`,
+which way each force points, the factor of two on the rate terms -- with the
+derivation in its docstring. `spin73` is optional; without it the script says
+how to install it and its tests are skipped.
 
 ## The pipeline
 
