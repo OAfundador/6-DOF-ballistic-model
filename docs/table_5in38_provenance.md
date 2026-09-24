@@ -18,7 +18,7 @@ no longer reproduces the work it accompanies. This page is the declaration.
 | Generator | Whyte, R. H., *SPIN-73: An Updated Version of the Spinner Computer Program*, 1973 (AD09156281) |
 | Nature of the data | empirical, least-squares fits to BRL and AEDC range firings; Whyte states no wind-tunnel data entered the data bank |
 | Conversion | `examples/07_bring_your_own_table.py`, `convert()` with its defaults |
-| Grid | 100 Mach × 100 yaw nodes, yaw ±10° |
+| Grid | 100 Mach × 100 yaw nodes, yaw ±10° (clipped beyond; the simulator warns above 10°, see `sixdof.diagnostics`) |
 
 The conversion is verified in both directions:
 `tests/test_coefficients.py::test_example_reproduces_the_shipped_grids_bit_for_bit`

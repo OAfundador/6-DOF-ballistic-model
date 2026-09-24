@@ -8,6 +8,12 @@ from typing import TYPE_CHECKING, Callable, List, Optional, Protocol, Sequence
 import numpy as np
 from scipy.integrate import solve_ivp
 
+from .diagnostics import (
+    HIGH_ALPHA_DEG,
+    SINGULAR_ALPHA_DEG,
+    check_angle_of_attack,
+    describe,
+)
 from .dynamics import SixDofEquations, build_initial_state
 from .events import make_ground_event, make_proximity_fuze_event
 from .trajectory import Trajectory
@@ -131,6 +137,8 @@ class BallisticSimulator:
         fuze: Optional[FuzeSpec] = None,
         extra_events: Optional[Sequence[Callable]] = None,
         verbose: bool = True,
+        alpha_warning_deg: float = HIGH_ALPHA_DEG,
+        alpha_singularity_deg: float = SINGULAR_ALPHA_DEG,
     ) -> Trajectory:
         """Integrate one shot and return the resulting :class:`Trajectory`.
 
@@ -154,6 +162,11 @@ class BallisticSimulator:
             Further event callables appended after the built-in ones.
         verbose:
             Print the progress banner of the original engine.
+        alpha_warning_deg, alpha_singularity_deg:
+            Limits on the total angle of attack above which a
+            :class:`~sixdof.diagnostics.HighAngleOfAttackWarning` or an
+            :class:`~sixdof.diagnostics.AngleOfAttackSingularityWarning` is
+            issued; see :mod:`sixdof.diagnostics`.  They only warn.
 
         Returns
         -------
@@ -225,6 +238,15 @@ class BallisticSimulator:
             stop_reason=self.stop_reason,
             muzzle_velocity=self.weapon.muzzle_velocity,
         )
+        self.result.diagnostics = check_angle_of_attack(
+            self.result,
+            high_deg=alpha_warning_deg,
+            singular_deg=alpha_singularity_deg,
+            stacklevel=2,
+        )
+        if verbose:
+            for line in describe(self.result.diagnostics):
+                print(f"  {line}")
         return self.result
 
     @staticmethod

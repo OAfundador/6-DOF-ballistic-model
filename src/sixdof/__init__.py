@@ -51,6 +51,7 @@ from .aerodynamics import (
     AerodynamicCoefficients,
     load_coefficients,
 )
+from .diagnostics import AngleOfAttackSingularityWarning, HighAngleOfAttackWarning
 from .dynamics import SixDofEquations, build_initial_state, six_dof_rhs
 from .environment import Environment
 from .events import make_ground_event, make_proximity_fuze_event
@@ -101,6 +102,8 @@ __all__ = [
     "SimulationResult",
     "make_ground_event",
     "make_proximity_fuze_event",
+    "HighAngleOfAttackWarning",
+    "AngleOfAttackSingularityWarning",
     # presets and data
     "naval_5in38_projectile",
     "naval_5in38_gun",

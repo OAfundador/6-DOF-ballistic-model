@@ -49,6 +49,8 @@ class Trajectory:
         Position, in m: downrange, altitude, lateral.
     V_mag, mach, h_mag, spin_rate, alpha_traj:
         Derived histories (see :meth:`_compute_derived`).
+    diagnostics:
+        Angle-of-attack findings from :mod:`sixdof.diagnostics`.
     """
 
     def __init__(
@@ -71,6 +73,10 @@ class Trajectory:
         self.h1, self.h2, self.h3 = solution.y[3:6]
         self.i1, self.i2, self.i3 = solution.y[6:9]
         self.x, self.y, self.z = solution.y[9:12]
+
+        #: Findings of :func:`sixdof.diagnostics.check_angle_of_attack`, filled
+        #: in by the simulator; empty when no limit was crossed.
+        self.diagnostics: list = []
 
         self._compute_derived()
 
